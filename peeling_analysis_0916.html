@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>D_pad Peeling 與 CP3 電性測項關聯分析</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Sans+TC:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root{
+    --bg: #F4F2EC;
+    --paper: #FFFFFF;
+    --ink: #171B1F;
+    --ink-soft: #4B5259;
+    --line: #DAD5C8;
+    --steel: #2B5D73;
+    --steel-deep: #163544;
+    --amber: #B9762F;
+    --good: #2E7D57;
+    --bad: #B23A32;
+    --mono: 'IBM Plex Mono', ui-monospace, monospace;
+    --sans: 'Noto Sans TC', 'Space Grotesk', sans-serif;
+    --disp: 'Space Grotesk', 'Noto Sans TC', sans-serif;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#14181C; --paper:#1B2126; --ink:#EDEAE1; --ink-soft:#AAB1B8; --line:#333B42;
+      --steel:#6FA9C4; --steel-deep:#9FC7DA; --amber:#E0A45C; --good:#5FBE8A; --bad:#E06A61;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#14181C; --paper:#1B2126; --ink:#EDEAE1; --ink-soft:#AAB1B8; --line:#333B42;
+    --steel:#6FA9C4; --steel-deep:#9FC7DA; --amber:#E0A45C; --good:#5FBE8A; --bad:#E06A61;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);font-family:var(--sans);height:100%;}
+  #deck{position:relative;width:100%;height:100vh;overflow:hidden;}
+  .slide{
+    position:absolute;inset:0;display:none;
+    padding:clamp(20px,4vw,64px) clamp(24px,6vw,96px);
+    overflow-y:auto;
+  }
+  .slide.active{display:flex;flex-direction:column;}
+  .kicker{
+    font-family:var(--mono);font-size:12px;letter-spacing:.08em;color:var(--steel);
+    display:flex;align-items:center;gap:10px;margin-bottom:6px;
+  }
+  .kicker .n{color:var(--ink-soft);}
+  h1{font-family:var(--disp);font-weight:700;font-size:clamp(28px,4vw,46px);line-height:1.15;margin:0 0 8px 0;color:var(--ink);}
+  h2{font-family:var(--disp);font-weight:600;font-size:clamp(20px,2.6vw,30px);margin:0 0 18px 0;color:var(--ink);border-bottom:2px solid var(--line);padding-bottom:14px;}
+  h3{font-family:var(--disp);font-weight:600;font-size:18px;margin:0 0 8px 0;color:var(--steel-deep);}
+  p{color:var(--ink-soft);line-height:1.7;font-size:15px;max-width:74ch;}
+  .lead{font-size:17px;color:var(--ink-soft);max-width:62ch;line-height:1.75;}
+  .grid{display:grid;gap:18px;}
+  .g2{grid-template-columns:1fr 1fr;}
+  .g3{grid-template-columns:1fr 1fr 1fr;}
+  .card{background:var(--paper);border:1px solid var(--line);border-radius:4px;padding:18px 20px;}
+  .stat{
+    background:var(--paper);border:1px solid var(--line);border-left:3px solid var(--steel);
+    border-radius:2px;padding:14px 16px;
+  }
+  .stat .val{font-family:var(--mono);font-size:26px;font-weight:600;color:var(--ink);}
+  .stat .unit{font-size:13px;color:var(--ink-soft);margin-left:4px;}
+  .stat .lbl{font-size:12.5px;color:var(--ink-soft);margin-top:4px;}
+  .stat.good{border-left-color:var(--good);}
+  .stat.bad{border-left-color:var(--bad);}
+  .stat.amber{border-left-color:var(--amber);}
+  table{width:100%;border-collapse:collapse;font-size:13.5px;}
+  th,td{text-align:left;padding:7px 10px;border-bottom:1px solid var(--line);font-family:var(--mono);white-space:nowrap;}
+  th{color:var(--ink-soft);font-weight:500;font-size:12px;letter-spacing:.02em;border-bottom:1px solid var(--ink-soft);}
+  td.name{font-family:var(--sans);}
+  tr.hl td{color:var(--bad);font-weight:600;}
+  tr.grp-low td:first-child::before{content:"";display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--steel);margin-right:7px;}
+  tr.grp-high td:first-child::before{content:"";display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--amber);margin-right:7px;}
+  .chart-wrap{background:var(--paper);border:1px solid var(--line);border-radius:4px;padding:16px;flex:1;min-height:0;}
+  .legend-row{display:flex;gap:22px;align-items:center;margin:6px 0 2px 0;font-size:13px;color:var(--ink-soft);font-family:var(--mono);}
+  .dot{width:10px;height:10px;border-radius:2px;display:inline-block;margin-right:6px;vertical-align:middle;}
+  .content{flex:1;display:flex;flex-direction:column;gap:16px;min-height:0;}
+  .note{font-size:13.5px;color:var(--ink-soft);border-left:2px solid var(--line);padding-left:12px;margin-top:6px;}
+  .badge{
+    display:inline-block;font-family:var(--mono);font-size:11.5px;padding:2px 8px;border-radius:20px;
+    border:1px solid currentColor;letter-spacing:.02em;
+  }
+  .badge.low{color:var(--steel);}
+  .badge.high{color:var(--amber);}
+  .answer{
+    margin-top:auto;padding:16px 18px;background:var(--paper);border:1px solid var(--line);
+    border-left:4px solid var(--steel-deep);border-radius:2px;
+  }
+  .answer b{color:var(--ink);}
+  .flow{display:flex;align-items:center;gap:10px;font-family:var(--mono);font-size:14px;color:var(--ink-soft);flex-wrap:wrap;}
+  .flow .stepbox{background:var(--paper);border:1px solid var(--line);padding:8px 14px;border-radius:3px;color:var(--ink);}
+  .flow .arrow{color:var(--steel);}
+  footer{
+    position:absolute;bottom:0;left:0;right:0;height:52px;display:flex;align-items:center;
+    justify-content:space-between;padding:0 clamp(24px,6vw,96px);border-top:1px solid var(--line);
+    background:var(--bg);
+  }
+  .navbtn{
+    background:none;border:1px solid var(--line);color:var(--ink);width:34px;height:34px;border-radius:50%;
+    cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;
+  }
+  .navbtn:hover{border-color:var(--steel);color:var(--steel);}
+  .navbtn:disabled{opacity:.3;cursor:default;}
+  .dots{display:flex;gap:7px;}
+  .pdot{width:6px;height:6px;border-radius:50%;background:var(--line);cursor:pointer;}
+  .pdot.on{background:var(--steel);width:18px;border-radius:3px;}
+  .pageno{font-family:var(--mono);font-size:12px;color:var(--ink-soft);}
+  ul.clean{margin:0;padding-left:18px;color:var(--ink-soft);font-size:14.5px;line-height:1.8;}
+  ul.clean li::marker{color:var(--steel);}
+  .small{font-size:12px;color:var(--ink-soft);font-family:var(--mono);}
+  .two-col{display:grid;grid-template-columns:1.1fr .9fr;gap:20px;flex:1;min-height:0;}
+  canvas{max-height:100%;}
+</style>
+</head>
+<body>
+<div id="deck">
+
+  <!-- SLIDE 0: TITLE -->
+  <section class="slide active">
+    <div style="flex:1;display:flex;flex-direction:column;justify-content:center;max-width:900px;">
+      <div class="kicker">CP3 電性資料 × 可靠度分析 &nbsp;/&nbsp; FFHN84 · FFKG69 · FFHN83</div>
+      <h1>D_pad Peeling 不良與<br>「Ohm@14V D Pull L Res」測項<br>關聯性分析</h1>
+      <p class="lead" style="margin-top:14px;">彙整 13 個批次、共 32,980 筆 CP3 量測資料，比對 D_pad Peeling 不良率由 0% 至 19.6% 批次之電性分佈差異，評估是否可透過收嚴電性規格上限提前攔截 Peeling 風險材料。</p>
+      <div class="legend-row" style="margin-top:28px;gap:28px;">
+        <span><span class="dot" style="background:var(--steel)"></span>低不良率批 (7批，0%–0.04%)</span>
+        <span><span class="dot" style="background:var(--amber)"></span>高不良率批 (6批，3.1%–19.6%)</span>
+      </div>
+      <div class="small" style="margin-top:20px;">資料表：CP3 dlogTDO ／ 測試群組 I act current test ／ Excel 欄位 FK ／ 現行規格 USL 576 Ω・LSL 384 Ω</div>
+    </div>
+  </section>
+
+  <!-- SLIDE 1: SCOPE & METHOD -->
+  <section class="slide">
+    <div class="kicker"><span class="n">01</span> 分析範圍與資料說明</div>
+    <h2>13 批次進貨資料總覽（進貨順序：FFHN84 → FFKG69 → FFHN83）</h2>
+    <div class="two-col">
+      <div class="chart-wrap" style="overflow:auto;">
+        <table id="lotTable"></table>
+      </div>
+      <div class="content">
+        <div class="card">
+          <h3>測項定位</h3>
+          <ul class="clean">
+            <li>測試群組：<b style="color:var(--ink)">I act current test</b></li>
+            <li>測項名稱：<b style="color:var(--ink)">Ohm@14V D Pull L Res</b>（對應 Excel 欄位 <b style="color:var(--ink)">FK</b>）</li>
+            <li>現行規格：USL 576 Ω／LSL 384 Ω（13 批資料 100% 落在此區間內，現行規格對此議題無鑑別力）</li>
+            <li>每批資料筆數約 2,470–2,600 筆（約當每批投片顆數 ~2,450 顆）</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>分組依據</h3>
+          <p style="margin:0;font-size:14px;">依題目指定，以 D_pad Peeling 不良率將 13 批分為兩組：</p>
+          <div class="legend-row" style="margin-top:10px;">
+            <span><span class="badge low">低不良率 · 7批</span></span>
+            <span><span class="badge high">高不良率 · 6批</span></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SLIDE 2: Q2 distribution -->
+  <section class="slide">
+    <div class="kicker"><span class="n">02</span> 問題 2 － 全批資料分佈比較</div>
+    <h2>Ohm@14V D Pull L Res 分佈圖：低不良率 vs 高不良率</h2>
+    <div class="two-col">
+      <div class="chart-wrap"><canvas id="histChart"></canvas></div>
+      <div class="content">
+        <div class="grid g2">
+          <div class="stat"><div class="val">421.31<span class="unit">Ω</span></div><div class="lbl">全體平均值（n=32,980）</div></div>
+          <div class="stat amber"><div class="val">7.73<span class="unit">Ω</span></div><div class="lbl">全體標準差</div></div>
+          <div class="stat"><div class="val">419.35<span class="unit">Ω</span></div><div class="lbl">低不良率組平均（σ=5.47）</div></div>
+          <div class="stat bad"><div class="val">423.59<span class="unit">Ω</span></div><div class="lbl">高不良率組平均（σ=9.22）</div></div>
+        </div>
+        <div class="card">
+          <h3>離群判定方法（Tukey 1.5×IQR）</h3>
+          <p style="margin:0 0 8px 0;font-size:13.5px;">現行規格 384–576Ω 過鬆，13 批資料無一超出，故改以全資料集四分位距法定義統計離群邊界：</p>
+          <p class="small" style="line-height:1.9;margin:0;">Q1=415.14　Q3=427.18　IQR=12.04<br>上邊界 = Q3+1.5×IQR = <b style="color:var(--ink)">445.23 Ω</b><br>下邊界 = Q1−1.5×IQR = <b style="color:var(--ink)">397.08 Ω</b></p>
+        </div>
+      </div>
+    </div>
+    <div class="answer">
+      <b>離群資料筆數與離群率：</b> 上限離群 <b>81 筆</b>（佔全體 32,980 筆之 <b>0.246%</b>）；下限離群 <b>0 筆（0%）</b>。兩組分佈明顯不同——高不良率組整體右移且離散度擴大（σ 由 5.47 升至 9.22），且 81 筆上限離群值 <b>全數落在高不良率組</b>，低不良率組完全無離群點。
+    </div>
+  </section>
+
+  <!-- SLIDE 3: Q2 per-lot outlier table -->
+  <section class="slide">
+    <div class="kicker"><span class="n">02</span> 問題 2（續）－ 各批離群點分佈明細</div>
+    <h2>以全資料上限邊界 445.23 Ω 回推各批離群筆數</h2>
+    <div class="chart-wrap" style="flex:1;overflow:auto;">
+      <table id="outlierTable"></table>
+    </div>
+    <div class="answer">
+      離群點並非平均分散於 6 個高不良率批次，而是<b>集中在 FFHN83-15（71筆）與 FFHN83-17（10筆）</b>；FFHN83-16（不良率最高 19.6%）與 FFKG69-09／10／11 三批反而 0 筆離群 —— 此現象將於下一頁的趨勢比對中進一步說明。
+    </div>
+  </section>
+
+  <!-- SLIDE 4: Q3 trend -->
+  <section class="slide">
+    <div class="kicker"><span class="n">03</span> 問題 3 － 高／低不良率是否呈現相同趨勢</div>
+    <h2>各批平均值（±1 標準差）對照 Peeling 不良率</h2>
+    <div class="two-col">
+      <div class="chart-wrap"><canvas id="trendChart"></canvas></div>
+      <div class="content">
+        <div class="card">
+          <h3>觀察一：FFHN83 子批（不良率 13.6–19.6%）</h3>
+          <p style="margin:0;font-size:14px;">平均值 428.6–436.0 Ω，明顯高於低不良率組（413.6–428.6 Ω）且標準差擴大至 2.8–5.3 Ω，分佈右移、離散度變大 —— <b style="color:var(--good)">與高不良率同向</b>。</p>
+        </div>
+        <div class="card">
+          <h3>觀察二：FFKG69-09／10／11（不良率 3.1–5.6%）</h3>
+          <p style="margin:0;font-size:14px;">平均值 413.7–417.1 Ω、標準差 1.9–2.3 Ω，與低不良率組（FFKG69-01/02/05/06：413.6–418.5 Ω）幾乎<b>完全重疊，無法區分</b> —— <b style="color:var(--bad)">未呈現與高不良率一致的趨勢</b>。</p>
+        </div>
+      </div>
+    </div>
+    <div class="answer">
+      <b>結論：</b> 該測項與 Peeling 不良率<b>並非全面一致</b>的趨勢關係。僅在不良率最嚴重的 FFHN83 批次（13.6–19.6%）才觀察到分佈右移＋離散度擴大；中低不良率的 FFKG69-09/10/11（3.1–5.6%）在此測項上與 0% 批次無統計差異。換言之，此測項對高階不良（FFHN83等級）有部分鑑別力，但對中階不良（FFKG69-09/10/11等級）幾乎無鑑別力。
+    </div>
+  </section>
+
+  <!-- SLIDE 5: Q4 sigma -->
+  <section class="slide">
+    <div class="kicker"><span class="n">04</span> 問題 4 － 上限需收嚴至多少 Sigma？是否誤殺 0% 批次？</div>
+    <h2>以 6 個高不良率批次（μ=423.59Ω，σ=9.22Ω，n=15,242）試算</h2>
+    <div class="two-col">
+      <div class="chart-wrap" style="overflow:auto;">
+        <table id="sigmaTable"></table>
+      </div>
+      <div class="content">
+        <div class="flow">
+          <div class="stepbox">μ+2.0σ<br><span class="small">442.03Ω</span></div>
+          <div class="arrow">仍誤殺 1 筆</div>
+        </div>
+        <div class="flow">
+          <div class="stepbox" style="border-color:var(--good);color:var(--good)">μ+2.35σ<br><span class="small" style="color:var(--good)">445.3Ω</span></div>
+          <div class="arrow" style="color:var(--good)">誤殺率首次為 0%</div>
+        </div>
+        <div class="stat good" style="margin-top:6px;">
+          <div class="val">445.3<span class="unit">Ω</span></div>
+          <div class="lbl">建議新上限規格值（USL）－ 相當於高不良率組均值 + 2.35σ</div>
+        </div>
+        <div class="card">
+          <p style="margin:0;font-size:13.5px;">規格需卡至 <b style="color:var(--ink)">2.35σ（USL ≈ 445.3 Ω）</b>才能使低不良率（0% 批）誤殺比例降為 <b style="color:var(--good)">0%</b>；低於此 sigma（如 2.0σ／USL=442.0Ω）即開始誤殺良品，1σ／1.5σ 更會誤殺 165 筆／26 筆良品。</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SLIDE 6: Q5 catch rate -->
+  <section class="slide">
+    <div class="kicker"><span class="n">05</span> 問題 5 － 收嚴後能否攔截所有 Peeling 材料？</div>
+    <h2>新上限 445.3 Ω：各批「測項攔截率」對比「實際 Peeling 不良率」</h2>
+    <div class="two-col">
+      <div class="chart-wrap"><canvas id="catchChart"></canvas></div>
+      <div class="content">
+        <div class="stat bad"><div class="val">否</div><div class="lbl">無法攔截全部 Peeling 材料</div></div>
+        <div class="card">
+          <h3>攔截缺口</h3>
+          <ul class="clean" style="font-size:13.5px;">
+            <li>FFHN83-15：實際 13.6% ↔ 測項攔截 2.79%</li>
+            <li>FFHN83-17：實際 14.7% ↔ 測項攔截 0.32%</li>
+            <li>FFHN83-16（不良率最高 19.6%）：測項攔截 <b style="color:var(--bad)">0%</b></li>
+            <li>FFKG69-09／10／11（3.1–5.6%）：測項攔截 <b style="color:var(--bad)">0%</b></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    <div class="answer">
+      每批約 2,450 顆材料，即使將上限收嚴至 445.3Ω，也<b>無法攔截全部 Peeling 材料</b>：僅對 FFHN83-15／17 有部分攔截能力（分別攔截該批 2.79%／0.32% 顆數，遠低於其 13.6%／14.7% 實際不良率），對不良率最高的 FFHN83-16 及中階不良的 FFKG69-09/10/11 完全無攔截效果（0%）。此測項<b>不足以單獨作為 Peeling 全檢手段</b>。
+    </div>
+  </section>
+
+  <!-- SLIDE 7: Q6 yield loss -->
+  <section class="slide">
+    <div class="kicker"><span class="n">06</span> 問題 6 － 收嚴上限後的良率損失</div>
+    <h2>新上限 445.3 Ω 對各族群之良率損失評估</h2>
+    <div class="grid g3">
+      <div class="stat good"><div class="val">0.00%</div><div class="lbl">低不良率組（7批，0–0.04%）良率損失</div></div>
+      <div class="stat bad"><div class="val">0.51%</div><div class="lbl">高不良率組（6批）良率損失</div></div>
+      <div class="stat amber"><div class="val">0.24%</div><div class="lbl">全部 13 批合計良率損失</div></div>
+    </div>
+    <div class="chart-wrap" style="margin-top:18px;flex:1;overflow:auto;">
+      <table id="yieldTable"></table>
+    </div>
+    <div class="answer">
+      收嚴上限對既有 0% 不良率批次<b>無良率損失</b>；損失全數發生於高不良率批次內（合計 0.51%，實際上僅 FFHN83-15／17 貢獻），對全部 13 批合計影響約 <b>0.24%</b>。惟因 Q5 已證實此測項無法攔截全部 Peeling 材料，收嚴規格僅能提供<b>有限的部分防呆</b>，建議搭配其他測項或製程管制手段共同把關。
+    </div>
+  </section>
+
+  <!-- SLIDE 8: Conclusion -->
+  <section class="slide">
+    <div class="kicker"><span class="n">07</span> 結論與建議</div>
+    <h2>總結</h2>
+    <div class="content">
+      <div class="card">
+        <h3>Q2 分佈比較</h3>
+        <p style="margin:0;font-size:14px;">高／低不良率兩組分佈有明顯差異（均值+4.2Ω、標準差近乎翻倍）；以 1.5×IQR 法全體離群 81 筆（0.246%），且 100% 集中於高不良率組。</p>
+      </div>
+      <div class="card">
+        <h3>Q3 趨勢一致性</h3>
+        <p style="margin:0;font-size:14px;">僅 FFHN83 批（13.6–19.6%）呈現與不良率同向偏移；FFKG69-09/10/11（3.1–5.6%）趨勢不明顯，與低不良率組重疊。</p>
+      </div>
+      <div class="card">
+        <h3>Q4–Q6 規格收嚴試算</h3>
+        <p style="margin:0;font-size:14px;">USL 收至 445.3Ω（+2.35σ）可做到零誤殺，但攔截率僅 0.3–2.8%（限 FFHN83-15/17），對 FFHN83-16 與 FFKG69-09/10/11 完全無效；全批良率損失僅 0.24%，防呆效益有限。</p>
+      </div>
+      <div class="card" style="border-left:3px solid var(--steel-deep);">
+        <h3>建議</h3>
+        <ul class="clean" style="font-size:14px;">
+          <li>此測項可作為<b style="color:var(--ink)">輔助示警指標</b>，但不建議單獨作為 Peeling 全檢／攔截依據。</li>
+          <li>建議針對 FFKG69-09/10/11 及 FFHN83-16 之 Peeling 成因另行排查其他 CP3 測項或機構／材料因子。</li>
+          <li>若採用 445.3Ω 新上限，需同步監控此測項對後續批次之誤殺率是否隨批次漂移而上升。</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<footer>
+  <button class="navbtn" id="prevBtn" onclick="go(-1)">&#8249;</button>
+  <div class="dots" id="dots"></div>
+  <div style="display:flex;align-items:center;gap:14px;">
+    <span class="pageno" id="pageno"></span>
+    <button class="navbtn" id="nextBtn" onclick="go(1)">&#8250;</button>
+  </div>
+</footer>
+
+<script>
+const DATA = {"bin_centers": [400.75, 402.25, 403.75, 405.25, 406.75, 408.25, 409.75, 411.25, 412.75, 414.25, 415.75, 417.25, 418.75, 420.25, 421.75, 423.25, 424.75, 426.25, 427.75, 429.25, 430.75, 432.25, 433.75, 435.25, 436.75, 438.25, 439.75, 441.25, 442.75, 444.25, 445.75, 447.25, 448.75, 450.25, 451.75, 453.25, 454.75, 456.25, 457.75, 459.25], "low_hist": [0, 0, 1, 2, 7, 33, 155, 549, 1361, 2227, 2169, 1942, 2132, 1255, 1045, 998, 919, 884, 726, 583, 431, 164, 74, 38, 20, 15, 7, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], "high_hist": [0, 0, 2, 3, 18, 35, 131, 390, 1004, 1914, 1965, 1413, 497, 209, 267, 362, 333, 378, 399, 683, 898, 890, 1169, 904, 626, 357, 154, 86, 43, 28, 23, 25, 12, 9, 6, 3, 4, 1, 1, 0], "lots": {"FFHN84-01": {"n": 2538, "mean": 420.009, "std": 2.281, "min": 415.837, "max": 433.712, "peel": 0.0, "group": "low", "global_fence_out": 0}, "FFHN84-14": {"n": 2545, "mean": 424.303, "std": 2.622, "min": 419.315, "max": 438.456, "peel": 0.0, "group": "low", "global_fence_out": 0}, "FFHN84-25": {"n": 2471, "mean": 428.589, "std": 2.425, "min": 423.216, "max": 442.12, "peel": 0.0, "group": "low", "global_fence_out": 0}, "FFKG69-01": {"n": 2543, "mean": 418.477, "std": 1.955, "min": 408.626, "max": 428.516, "peel": 0.04, "group": "low", "global_fence_out": 0}, "FFKG69-02": {"n": 2546, "mean": 416.211, "std": 1.829, "min": 407.433, "max": 422.96, "peel": 0.0, "group": "low", "global_fence_out": 0}, "FFKG69-05": {"n": 2547, "mean": 414.507, "std": 2.113, "min": 404.144, "max": 422.582, "peel": 0.04, "group": "low", "global_fence_out": 0}, "FFKG69-06": {"n": 2548, "mean": 413.621, "std": 1.985, "min": 406.182, "max": 423.788, "peel": 0.0, "group": "low", "global_fence_out": 0}, "FFKG69-09": {"n": 2568, "mean": 413.704, "std": 1.912, "min": 403.161, "max": 421.651, "peel": 3.4, "group": "high", "global_fence_out": 0}, "FFKG69-10": {"n": 2552, "mean": 415.202, "std": 2.31, "min": 404.843, "max": 425.389, "peel": 3.1, "group": "high", "global_fence_out": 0}, "FFKG69-11": {"n": 2546, "mean": 417.051, "std": 2.146, "min": 409.412, "max": 427.35, "peel": 5.6, "group": "high", "global_fence_out": 0}, "FFHN83-15": {"n": 2507, "mean": 435.951, "std": 3.489, "min": 428.458, "max": 457.895, "peel": 13.6, "group": "high", "global_fence_out": 71}, "FFHN83-16": {"n": 2540, "mean": 428.603, "std": 5.258, "min": 416.956, "max": 444.835, "peel": 19.6, "group": "high", "global_fence_out": 0}, "FFHN83-17": {"n": 2529, "mean": 431.393, "std": 2.796, "min": 425.33, "max": 449.562, "peel": 14.7, "group": "high", "global_fence_out": 10}}, "global_stats": {"n": 32980, "mean": 421.309, "std": 7.734, "Q1": 415.14, "Q3": 427.177, "IQR": 12.037, "upper_fence": 445.233, "lower_fence": 397.084, "upper_out": 81, "lower_out": 0}, "low_stats": {"n": 17738, "mean": 419.348, "std": 5.465}, "high_stats": {"n": 15242, "mean": 423.591, "std": 9.219}, "sweep": [{"n": 1.0, "usl": 432.81, "catch_h": 3556, "catch_h_pct": 23.3303, "fk_low": 165, "fk_low_pct": 0.9302}, {"n": 1.5, "usl": 437.42, "catch_h": 769, "catch_h_pct": 5.0453, "fk_low": 26, "fk_low_pct": 0.1466}, {"n": 2.0, "usl": 442.03, "catch_h": 154, "catch_h_pct": 1.0104, "fk_low": 1, "fk_low_pct": 0.0056}, {"n": 2.35, "usl": 445.26, "catch_h": 79, "catch_h_pct": 0.5183, "fk_low": 0, "fk_low_pct": 0.0}, {"n": 2.5, "usl": 446.64, "catch_h": 59, "catch_h_pct": 0.3871, "fk_low": 0, "fk_low_pct": 0.0}, {"n": 3.0, "usl": 451.25, "catch_h": 14, "catch_h_pct": 0.0919, "fk_low": 0, "fk_low_pct": 0.0}, {"n": 3.5, "usl": 455.86, "catch_h": 1, "catch_h_pct": 0.0066, "fk_low": 0, "fk_low_pct": 0.0}, {"n": 4.0, "usl": 460.47, "catch_h": 0, "catch_h_pct": 0.0, "fk_low": 0, "fk_low_pct": 0.0}], "mu_h": 423.591, "sd_h": 9.219, "chosen_usl": 445.3, "per_lot_catch": [{"lot": "FFHN84-01", "peel": 0.0, "n": 2538, "caught": 0, "caught_pct": 0.0}, {"lot": "FFHN84-14", "peel": 0.0, "n": 2545, "caught": 0, "caught_pct": 0.0}, {"lot": "FFHN84-25", "peel": 0.0, "n": 2471, "caught": 0, "caught_pct": 0.0}, {"lot": "FFKG69-01", "peel": 0.04, "n": 2543, "caught": 0, "caught_pct": 0.0}, {"lot": "FFKG69-02", "peel": 0.0, "n": 2546, "caught": 0, "caught_pct": 0.0}, {"lot": "FFKG69-05", "peel": 0.04, "n": 2547, "caught": 0, "caught_pct": 0.0}, {"lot": "FFKG69-06", "peel": 0.0, "n": 2548, "caught": 0, "caught_pct": 0.0}, {"lot": "FFKG69-09", "peel": 3.4, "n": 2568, "caught": 0, "caught_pct": 0.0}, {"lot": "FFKG69-10", "peel": 3.1, "n": 2552, "caught": 0, "caught_pct": 0.0}, {"lot": "FFKG69-11", "peel": 5.6, "n": 2546, "caught": 0, "caught_pct": 0.0}, {"lot": "FFHN83-15", "peel": 13.6, "n": 2507, "caught": 70, "caught_pct": 2.7922}, {"lot": "FFHN83-16", "peel": 19.6, "n": 2540, "caught": 0, "caught_pct": 0.0}, {"lot": "FFHN83-17", "peel": 14.7, "n": 2529, "caught": 8, "caught_pct": 0.3163}], "yield_loss_all_pct": 0.2365, "yield_loss_low_pct": 0.0, "yield_loss_high_pct": 0.5117};
+
+const lotOrder = ["FFHN84-01","FFHN84-14","FFHN84-25","FFKG69-01","FFKG69-02","FFKG69-05","FFKG69-06","FFKG69-09","FFKG69-10","FFKG69-11","FFHN83-15","FFHN83-16","FFHN83-17"];
+
+function isDark(){
+  const attr = document.documentElement.getAttribute('data-theme');
+  if(attr==='dark') return true;
+  if(attr==='light') return false;
+  return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+}
+function cssVar(name){ return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+
+// ---- Build lot table (slide 1) ----
+function buildLotTable(){
+  const rows = lotOrder.map(l=>{
+    const d = DATA.lots[l];
+    const grp = d.group==='low' ? '<span class="badge low">低</span>' : '<span class="badge high">高</span>';
+    return `<tr class="grp-${d.group}"><td class="name">${l}</td><td>${grp}</td><td>${d.peel.toFixed(2)}%</td><td>${d.n}</td><td>${d.mean.toFixed(2)}</td><td>${d.std.toFixed(2)}</td></tr>`;
+  }).join('');
+  document.getElementById('lotTable').innerHTML =
+    `<tr><th>批次</th><th>分組</th><th>Peeling不良率</th><th>資料筆數</th><th>均值(Ω)</th><th>標準差</th></tr>${rows}`;
+}
+
+// ---- Build outlier table (slide 3) ----
+function buildOutlierTable(){
+  const rows = lotOrder.map(l=>{
+    const d = DATA.lots[l];
+    const cls = d.global_fence_out>0 ? 'hl' : '';
+    return `<tr class="${cls}"><td class="name">${l}</td><td>${d.peel.toFixed(2)}%</td><td>${d.n}</td><td>${d.global_fence_out}</td><td>${(d.global_fence_out/d.n*100).toFixed(3)}%</td></tr>`;
+  }).join('');
+  document.getElementById('outlierTable').innerHTML =
+    `<tr><th>批次</th><th>Peeling不良率</th><th>資料筆數</th><th>上限離群筆數(>445.23Ω)</th><th>離群率</th></tr>${rows}`;
+}
+
+// ---- Build sigma table (slide 5) ----
+function buildSigmaTable(){
+  const rows = DATA.sweep.map(s=>{
+    const cls = s.fk_low===0 ? '' : 'hl';
+    return `<tr class="${cls}"><td>${s.n}σ</td><td>${s.usl}</td><td>${s.catch_h} (${s.catch_h_pct}%)</td><td>${s.fk_low} (${s.fk_low_pct}%)</td></tr>`;
+  }).join('');
+  document.getElementById('sigmaTable').innerHTML =
+    `<tr><th>Sigma</th><th>USL(Ω)</th><th>高組攔截筆數(%)</th><th>低組誤殺筆數(%)</th></tr>${rows}`;
+}
+
+// ---- Build yield table (slide 7) ----
+function buildYieldTable(){
+  const rows = lotOrder.map(l=>{
+    const c = DATA.per_lot_catch.find(p=>p.lot===l);
+    const cls = c.caught>0 ? 'hl':'';
+    return `<tr class="${cls}"><td class="name">${l}</td><td>${c.peel.toFixed(2)}%</td><td>${c.n}</td><td>${c.caught}</td><td>${c.caught_pct.toFixed(3)}%</td></tr>`;
+  }).join('');
+  document.getElementById('yieldTable').innerHTML =
+    `<tr><th>批次</th><th>Peeling不良率</th><th>資料筆數</th><th>新規格攔截顆數(>445.3Ω)</th><th>良率損失</th></tr>${rows}`;
+}
+
+let charts = {};
+function destroyCharts(){ Object.values(charts).forEach(c=>c && c.destroy()); charts = {}; }
+
+function buildCharts(){
+  if(typeof Chart === 'undefined'){
+    document.querySelectorAll('.chart-wrap canvas').forEach(c=>{
+      const wrap = c.parentElement;
+      wrap.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--ink-soft);font-family:var(--mono);font-size:13px;text-align:center;padding:20px;">圖表函式庫載入失敗，請檢查網路連線後重新整理頁面</div>';
+    });
+    return;
+  }
+  destroyCharts();
+  const dark = isDark();
+  const ink = dark ? '#EDEAE1' : '#171B1F';
+  const inkSoft = dark ? '#AAB1B8' : '#4B5259';
+  const line = dark ? '#333B42' : '#DAD5C8';
+  const steel = dark ? '#6FA9C4' : '#2B5D73';
+  const amber = dark ? '#E0A45C' : '#B9762F';
+  const bad = dark ? '#E06A61' : '#B23A32';
+  const good = dark ? '#5FBE8A' : '#2E7D57';
+  Chart.defaults.font.family = "'IBM Plex Mono', monospace";
+  Chart.defaults.font.size = 11;
+  Chart.defaults.color = inkSoft;
+
+  // Histogram
+  const histCtx = document.getElementById('histChart');
+  if(histCtx){
+    charts.hist = new Chart(histCtx, {
+      type:'bar',
+      data:{
+        labels: DATA.bin_centers.map(x=>x.toFixed(0)),
+        datasets:[
+          {label:'低不良率組 (n=17,738)', data: DATA.low_hist, backgroundColor: steel+'CC', barPercentage:1, categoryPercentage:1},
+          {label:'高不良率組 (n=15,242)', data: DATA.high_hist, backgroundColor: amber+'AA', barPercentage:1, categoryPercentage:1}
+        ]
+      },
+      options:{
+        responsive:true, maintainAspectRatio:false,
+        interaction:{mode:'index', intersect:false},
+        plugins:{
+          legend:{position:'top', labels:{color:ink, boxWidth:12, padding:14}},
+          tooltip:{titleFont:{size:11}, bodyFont:{size:11}}
+        },
+        scales:{
+          x:{title:{display:true,text:'Ohm@14V D Pull L Res (Ω)',color:inkSoft}, grid:{color:line}, ticks:{maxRotation:0,autoSkip:true,maxTicksLimit:12}},
+          y:{title:{display:true,text:'筆數',color:inkSoft}, grid:{color:line}}
+        }
+      }
+    });
+  }
+
+  // Trend chart: mean +/- std per lot
+  const trendCtx = document.getElementById('trendChart');
+  if(trendCtx){
+    const means = lotOrder.map(l=>DATA.lots[l].mean);
+    const stds = lotOrder.map(l=>DATA.lots[l].std);
+    const colors = lotOrder.map(l=>DATA.lots[l].group==='low' ? steel : amber);
+    const peel = lotOrder.map(l=>DATA.lots[l].peel);
+    charts.trend = new Chart(trendCtx, {
+      type:'bar',
+      data:{
+        labels: lotOrder,
+        datasets:[{
+          label:'平均值 ± 1σ (Ω)',
+          data: means,
+          backgroundColor: colors,
+          errorBars: stds
+        }]
+      },
+      options:{
+        responsive:true, maintainAspectRatio:false,
+        plugins:{
+          legend:{display:false},
+          tooltip:{
+            callbacks:{
+              afterLabel: (ctx)=> `σ=${stds[ctx.dataIndex].toFixed(2)} ｜ Peeling=${peel[ctx.dataIndex]}%`
+            }
+          }
+        },
+        scales:{
+          x:{ticks:{color:ink, maxRotation:60, minRotation:60, font:{size:10}}, grid:{display:false}},
+          y:{title:{display:true,text:'Ω',color:inkSoft}, min:405, grid:{color:line}}
+        }
+      },
+      plugins:[{
+        id:'errbar',
+        afterDatasetsDraw(chart){
+          const {ctx, scales:{x,y}} = chart;
+          chart.data.datasets[0].data.forEach((v,i)=>{
+            const cx = x.getPixelForValue(i);
+            const s = stds[i];
+            const yTop = y.getPixelForValue(v+s);
+            const yBot = y.getPixelForValue(v-s);
+            ctx.save();
+            ctx.strokeStyle = dark ? '#00000066' : '#00000066';
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.moveTo(cx, yTop); ctx.lineTo(cx, yBot);
+            ctx.moveTo(cx-5, yTop); ctx.lineTo(cx+5, yTop);
+            ctx.moveTo(cx-5, yBot); ctx.lineTo(cx+5, yBot);
+            ctx.stroke();
+            ctx.restore();
+          });
+        }
+      }]
+    });
+  }
+
+  // Catch vs peel chart
+  const catchCtx = document.getElementById('catchChart');
+  if(catchCtx){
+    charts.catchc = new Chart(catchCtx, {
+      type:'bar',
+      data:{
+        labels: lotOrder,
+        datasets:[
+          {label:'實際 Peeling 不良率 (%)', data: lotOrder.map(l=>DATA.lots[l].peel), backgroundColor: bad+'CC'},
+          {label:'測項攔截率 (%) @USL=445.3Ω', data: DATA.per_lot_catch.map(p=>p.caught_pct), backgroundColor: steel+'CC'}
+        ]
+      },
+      options:{
+        responsive:true, maintainAspectRatio:false,
+        plugins:{legend:{position:'top', labels:{color:ink, boxWidth:12, padding:14}}},
+        scales:{
+          x:{ticks:{color:ink, maxRotation:60, minRotation:60, font:{size:10}}, grid:{display:false}},
+          y:{title:{display:true,text:'%',color:inkSoft}, grid:{color:line}}
+        }
+      }
+    });
+  }
+}
+
+// ---- Slide navigation ----
+const slides = document.querySelectorAll('.slide');
+let idx = 0;
+function renderDots(){
+  const dotsEl = document.getElementById('dots');
+  dotsEl.innerHTML = '';
+  slides.forEach((_,i)=>{
+    const d = document.createElement('div');
+    d.className = 'pdot' + (i===idx ? ' on':'');
+    d.onclick = ()=>{ idx=i; render(); };
+    dotsEl.appendChild(d);
+  });
+}
+function render(){
+  slides.forEach((s,i)=> s.classList.toggle('active', i===idx));
+  document.getElementById('pageno').textContent = (idx+1) + ' / ' + slides.length;
+  document.getElementById('prevBtn').disabled = idx===0;
+  document.getElementById('nextBtn').disabled = idx===slides.length-1;
+  renderDots();
+  requestAnimationFrame(()=> setTimeout(buildCharts, 30));
+}
+function go(delta){
+  const n = idx + delta;
+  if(n<0 || n>=slides.length) return;
+  idx = n;
+  render();
+}
+document.addEventListener('keydown', (e)=>{
+  if(e.key==='ArrowRight' || e.key===' ') go(1);
+  if(e.key==='ArrowLeft') go(-1);
+});
+
+buildLotTable();
+buildOutlierTable();
+buildSigmaTable();
+buildYieldTable();
+render();
+
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', ()=> buildCharts());
+</script>
+</body>
+</html>
