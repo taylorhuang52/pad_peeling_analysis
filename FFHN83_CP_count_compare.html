@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>FFHN83 CP 測項筆數比對</title>
+<style>
+:root{--bg:#0f1b2d;--panel:#16263d;--ink:#eaf0f8;--mute:#9db0c9;--ok:#4cc2a0;--ng:#f08a5d;--acc:#6aa8ff;--line:#26405f}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:var(--bg);color:var(--ink);font-family:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;overflow:hidden}
+.deck{position:relative;width:100vw;height:100vh}
+.slide{position:absolute;inset:0;padding:5vh 6vw 8vh;display:none;flex-direction:column;gap:2.2vh}
+.slide.active{display:flex}
+h1{font-size:clamp(30px,5vw,60px);line-height:1.2}
+h2{font-size:clamp(22px,3.2vw,38px);border-left:6px solid var(--acc);padding-left:14px}
+.sub{color:var(--mute);font-size:clamp(14px,1.7vw,22px)}
+.tag{display:inline-block;padding:3px 12px;border-radius:99px;font-size:clamp(12px,1.3vw,16px);background:var(--panel);border:1px solid var(--line);color:var(--mute)}
+.ok{color:var(--ok)}.ng{color:var(--ng)}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:2vw}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:2.2vh 1.6vw}
+.card .big{font-size:clamp(28px,4vw,48px);font-weight:700}
+.card .lbl{color:var(--mute);font-size:clamp(12px,1.3vw,16px)}
+ul{list-style:none;display:grid;gap:1.6vh;font-size:clamp(15px,2vw,26px)}
+li::before{content:"▸ ";color:var(--acc)}
+table{border-collapse:collapse;width:100%;font-size:clamp(11px,1.25vw,16px)}
+th,td{padding:.55vh .7vw;text-align:right;border-bottom:1px solid var(--line)}
+th:first-child,td:first-child{text-align:left}
+th{color:var(--mute);font-weight:500}
+.split{display:grid;grid-template-columns:1.25fr 1fr;gap:2vw;min-height:0;flex:1}
+.scroll{overflow:auto;min-height:0}
+.bar-row{display:grid;grid-template-columns:minmax(120px,1.5fr) 3fr 58px;align-items:center;gap:8px;font-size:clamp(10px,1.15vw,14px);margin:2px 0}
+.bar-row .name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--mute)}
+.track{position:relative;height:14px;background:#12213a;border-radius:3px}
+.track::before{content:"";position:absolute;left:50%;top:-2px;bottom:-2px;border-left:1px dashed var(--mute)}
+.fill{position:absolute;top:2px;height:10px;border-radius:2px;background:var(--acc)}
+.axis{display:flex;justify-content:space-between;color:var(--mute);font-size:11px;margin-left:calc(1.5/5.5*(100% - 66px) + 8px);margin-right:66px}
+.note{color:var(--mute);font-size:clamp(12px,1.35vw,17px)}
+.hdr{display:flex;align-items:center;gap:14px}
+.nav{position:fixed;left:0;right:0;bottom:0;height:5vh;min-height:34px;display:flex;align-items:center;justify-content:space-between;padding:0 2vw;color:var(--mute);font-size:13px;background:linear-gradient(transparent,#0a1322)}
+.nav button{background:none;border:1px solid var(--line);color:var(--ink);border-radius:6px;padding:3px 12px;cursor:pointer}
+.prog{position:fixed;top:0;left:0;height:3px;background:var(--acc);transition:width .2s}
+</style>
+</head>
+<body>
+<div class="prog" id="prog"></div>
+<div class="deck" id="deck">
+
+<section class="slide">
+  <div style="margin-top:14vh"><span class="tag">CP Test Data Review</span></div>
+  <h1>FFHN83-19D0 vs FFHN83-25A4<br>CP1 / CP2 / CP3 測項筆數比對</h1>
+  <p class="sub">各測項資料筆數是否有明顯差異？</p>
+  <p class="sub" style="margin-top:auto">資料日期：2026-11-10　｜　19D0 = OK　25A4 = NG</p>
+</section>
+
+<section class="slide">
+  <h2>比對範圍與方法</h2>
+  <ul>
+    <li>檔案：dlogTDO 共 6 份（19D0 與 25A4 各 CP1、CP2、CP3）</li>
+    <li>逐一統計每個測項欄位「有量測值」的 die 筆數</li>
+    <li>以 測項群組 + 測項名稱 對應兩片 wafer，檢查欄位是否缺漏</li>
+    <li>因各 CP 的 die 數不同，另以「筆數 ÷ 該 CP die 數」換算涵蓋率再比較</li>
+  </ul>
+  <p class="note">只比對筆數，未檢查量測值內容。</p>
+</section>
+
+<section class="slide">
+  <h2>Die 數：CP2、CP3 的 NG 片多約 15 顆</h2>
+  <div class="cards">
+    <div class="card"><div class="lbl">CP1</div><div class="big"><span class="ok">2588</span> / <span class="ng">2588</span></div><div class="lbl">OK / NG　差 0</div></div>
+    <div class="card"><div class="lbl">CP2</div><div class="big"><span class="ok">2520</span> / <span class="ng">2535</span></div><div class="lbl">OK / NG　差 +15</div></div>
+    <div class="card"><div class="lbl">CP3</div><div class="big"><span class="ok">2514</span> / <span class="ng">2530</span></div><div class="lbl">OK / NG　差 +16</div></div>
+  </div>
+  <p class="sub">欄位結構兩片完全一致：CP1 171 欄、CP2 58 欄、CP3 199 欄，沒有缺項或多項。</p>
+  <p class="sub">所以各測項的原始筆數，NG 幾乎都比 OK 多十幾筆。</p>
+</section>
+
+<section class="slide" data-cp="1">
+  <div class="hdr"><h2>CP1　各測項筆數</h2><span class="tag">差異 0 ~ +0.62 pp</span></div>
+  <div class="split">
+    <div class="scroll"><table class="tbl"></table></div>
+    <div class="scroll"><div class="bars"></div></div>
+  </div>
+  <p class="note">圖：涵蓋率差（NG − OK，百分點）。虛線為 0，刻度範圍 ±0.7 pp。</p>
+</section>
+
+<section class="slide" data-cp="2">
+  <div class="hdr"><h2>CP2　各測項筆數</h2><span class="tag">差異 −0.08 ~ 0 pp</span></div>
+  <div class="split">
+    <div class="scroll"><table class="tbl"></table></div>
+    <div class="scroll"><div class="bars"></div></div>
+  </div>
+  <p class="note">圖：涵蓋率差（NG − OK，百分點）。虛線為 0，刻度範圍 ±0.7 pp。</p>
+</section>
+
+<section class="slide" data-cp="3">
+  <div class="hdr"><h2>CP3　各測項筆數</h2><span class="tag">差異 0 ~ +0.16 pp</span></div>
+  <div class="split">
+    <div class="scroll"><table class="tbl"></table></div>
+    <div class="scroll"><div class="bars"></div></div>
+  </div>
+  <p class="note">圖：涵蓋率差（NG − OK，百分點）。虛線為 0，刻度範圍 ±0.7 pp。</p>
+</section>
+
+<section class="slide">
+  <h2>結論</h2>
+  <ul>
+    <li><b>沒有任何測項的筆數有明顯差異</b>：涵蓋率差最大僅 0.62 個百分點</li>
+    <li>原始筆數差來自 NG 片 CP2、CP3 多 15~16 顆 die，以及 CP1 前段 fail 較少，後段進入的 die 較多</li>
+    <li>IDDQ 原始筆數差最大（CP3 合計 +2024），但它有 108 欄，平均每欄約 +19 筆，與 die 數差一致</li>
+    <li>25A4 被判 NG 的原因不在測項筆數</li>
+  </ul>
+  <p class="sub">建議下一步：比對 IDDQ、OTP、Gate 的量測值分佈與 fail bin 分佈。</p>
+</section>
+
+</div>
+
+<div class="nav">
+  <button id="prev">◀ 上一頁</button>
+  <span id="pg"></span>
+  <span><button id="fs">全螢幕</button> <button id="next">下一頁 ▶</button></span>
+</div>
+
+<script>
+// [測項, 欄數, OK平均筆數, NG平均筆數, OK涵蓋率%, NG涵蓋率%]
+const D={
+1:[["Gate_test",11,2520,2536,97.37,97.99],["IDDQ_test",108,2532.04,2544.11,97.84,98.30],["OTP_test",11,2531.09,2543.82,97.80,98.29],["TF2_test",2,2520,2536,97.37,97.99],["TF_test",3,2562,2567,99.00,99.19],["TI_test",3,2563,2567,99.03,99.19],["TV_test",3,2573,2575,99.42,99.50],["backup_mask_test",1,2532,2544,97.84,98.30],["item0_loop_resistor_test",3,2588,2588,100,100],["item1_open_short_test",26,2588,2588,100,100]],
+2:[["AVDD_DVDD_Voltage",11,2515,2530,99.80,99.80],["I act current test",3,2518,2532,99.92,99.88],["OTP_test",8,2519,2532,99.96,99.88],["Stand by current test",4,2520,2535,100,100],["TF2_test",2,2518,2532,99.92,99.88],["backup_mask_test",1,2519,2532,99.96,99.88],["item0_loop_resistor_test",3,2520,2535,100,100],["item1_open_short_test",26,2520,2535,100,100]],
+3:[["AVDD_DVDD_Voltage",11,2505,2523,99.64,99.72],["Breakdown 44V Test",8,2508,2527,99.76,99.88],["Duty_diff_Trdelay_Tfdelay",3,2505,2523,99.64,99.72],["FILTER Test",1,2505,2523,99.64,99.72],["Field_Rds_on_HS_LS",2,2505,2523,99.64,99.72],["I act current test",3,2505,2523,99.64,99.72],["IDDQ_test",108,2509.85,2528.59,99.83,99.94],["OTP_test",8,2508,2527,99.76,99.88],["Stand by current test",4,2514,2530,100,100],["TF2_test",2,2508,2527,99.76,99.88],["T_Pwon_Exc_Drv",2,2505,2523,99.64,99.72],["Texc_on_Texc_off",2,2505,2523,99.64,99.72],["Tfilt_trig",4,2505,2523,99.64,99.72],["Trec_mc",1,2505,2523,99.64,99.72],["VBH_set_test",1,2505,2523,99.64,99.72],["VBL_set_test",1,2505,2523,99.64,99.72],["backup_mask_test",1,2508,2527,99.76,99.88],["item0_loop_resistor_test",3,2514,2530,100,100],["item1_open_short_test",26,2514,2530,100,100],["vdtrig_vdth_vdl_vdh",8,2505,2523,99.64,99.72]]
+};
+const f=(v,d=0)=>Number(v).toLocaleString('en-US',{minimumFractionDigits:d,maximumFractionDigits:d});
+document.querySelectorAll('.slide[data-cp]').forEach(s=>{
+  const rows=D[s.dataset.cp];
+  s.querySelector('.tbl').innerHTML='<tr><th>測項</th><th>欄數</th><th>OK 筆數</th><th>NG 筆數</th><th>OK 涵蓋率</th><th>NG 涵蓋率</th></tr>'+
+    rows.map(r=>`<tr><td>${r[0]}</td><td>${r[1]}</td><td class="ok">${f(r[2],r[2]%1?1:0)}</td><td class="ng">${f(r[3],r[3]%1?1:0)}</td><td>${f(r[4],2)}%</td><td>${f(r[5],2)}%</td></tr>`).join('');
+  const R=0.7;
+  s.querySelector('.bars').innerHTML=rows.map(r=>{
+    const d=r[5]-r[4], w=Math.min(Math.abs(d)/R,1)*50;
+    const st=d>=0?`left:50%;width:${w}%`:`left:${50-w}%;width:${w}%`;
+    const col=d>=0?'var(--ng)':'var(--ok)';
+    return `<div class="bar-row"><span class="name" title="${r[0]}">${r[0]}</span><div class="track"><div class="fill" style="${st};background:${col}"></div></div><span>${d>=0?'+':''}${d.toFixed(2)}</span></div>`;
+  }).join('')+`<div class="axis"><span>−${R}</span><span>0</span><span>+${R}</span></div>`;
+});
+const slides=[...document.querySelectorAll('.slide')];let i=0;
+function show(n){i=Math.max(0,Math.min(slides.length-1,n));slides.forEach((s,k)=>s.classList.toggle('active',k===i));
+ document.getElementById('pg').textContent=(i+1)+' / '+slides.length;
+ document.getElementById('prog').style.width=((i+1)/slides.length*100)+'%';location.hash=i+1;}
+document.getElementById('next').onclick=()=>show(i+1);
+document.getElementById('prev').onclick=()=>show(i-1);
+document.getElementById('fs').onclick=()=>{document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen()};
+addEventListener('keydown',e=>{
+ if(['ArrowRight','PageDown',' ','Enter'].includes(e.key)){e.preventDefault();show(i+1)}
+ else if(['ArrowLeft','PageUp','Backspace'].includes(e.key)){e.preventDefault();show(i-1)}
+ else if(e.key==='Home')show(0);else if(e.key==='End')show(slides.length-1);else if(e.key==='f')document.getElementById('fs').click();});
+show((parseInt(location.hash.slice(1))||1)-1);
+</script>
+</body>
+</html>
