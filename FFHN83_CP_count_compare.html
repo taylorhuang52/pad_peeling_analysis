@@ -48,7 +48,7 @@ th{color:var(--mute);font-weight:500}
 <section class="slide">
   <div style="margin-top:14vh"><span class="tag">CP Test Data Review</span></div>
   <h1>FFHN83-19D0 vs FFHN83-25A4<br>CP1 / CP2 / CP3 測項筆數比對</h1>
-  <p class="sub">各測項資料筆數是否有明顯差異？</p>
+  <p class="sub">測項筆數、Bin 分佈、量測值分佈是否有明顯差異？</p>
   <p class="sub" style="margin-top:auto">資料日期：2026-11-10　｜　19D0 = OK　25A4 = NG</p>
 </section>
 
@@ -59,8 +59,10 @@ th{color:var(--mute);font-weight:500}
     <li>逐一統計每個測項欄位「有量測值」的 die 筆數</li>
     <li>以 測項群組 + 測項名稱 對應兩片 wafer，檢查欄位是否缺漏</li>
     <li>因各 CP 的 die 數不同，另以「筆數 ÷ 該 CP die 數」換算涵蓋率再比較</li>
+    <li>Bin 分佈：統計每個 CP 各 Bin 的 die 數（Bin 1 = Pass，與檔頭 Pass 數一致）</li>
+    <li>量測值：428 個測項欄位逐欄比較中位數位移（以 OK 片的 IQR/1.349 為單位）與超規筆數（依檔內 limit）</li>
   </ul>
-  <p class="note">只比對筆數，未檢查量測值內容。</p>
+  <p class="note">兩片是不同 wafer，沒有逐 die 對位；位移大小以 OK 片自身的離散度做參考。</p>
 </section>
 
 <section class="slide">
@@ -102,14 +104,55 @@ th{color:var(--mute);font-weight:500}
 </section>
 
 <section class="slide">
+  <h2>Bin 分佈：NG 片的 Pass 比例反而略高</h2>
+  <div class="cards" id="bincards"></div>
+  <p class="note">Bin 1 = Pass。CP1 Pass 97.33% → 97.95%、CP2 99.76% → 99.80%、CP3 99.64% → 99.72%（OK → NG）。各 fail Bin 的差都在 1~8 顆 die 以內。</p>
+</section>
+
+<section class="slide">
+  <h2>量測值：中位數位移都很小</h2>
+  <div class="cards">
+    <div class="card"><div class="lbl">CP1　171 欄</div><div class="big">0.67σ</div><div class="lbl">最大位移（TI 1st）</div></div>
+    <div class="card"><div class="lbl">CP2　58 欄</div><div class="big">0.90σ</div><div class="lbl">最大位移（I act current）</div></div>
+    <div class="card"><div class="lbl">CP3　199 欄</div><div class="big">1.12σ</div><div class="lbl">最大位移（Breakdown 44V）</div></div>
+  </div>
+  <table style="max-width:900px">
+    <tr><th>CP</th><th>測項</th><th>欄位</th><th>OK 中位數</th><th>NG 中位數</th><th>位移 (σ)</th></tr>
+    <tr><td>3</td><td>Breakdown 44V Test</td><td>mA@LS_I2@44V</td><td>3.786</td><td>3.823</td><td>+1.12</td></tr>
+    <tr><td>3</td><td>I act current test</td><td>Ohm@14V D Pull L Res</td><td>430.878</td><td>427.932</td><td>−1.09</td></tr>
+    <tr><td>3</td><td>item1_open_short_test</td><td>DIF</td><td>−510.509</td><td>−507.482</td><td>+0.94</td></tr>
+    <tr><td>2</td><td>I act current test</td><td>Ohm@14V D Pull L Res</td><td>417.329</td><td>415.023</td><td>−0.90</td></tr>
+    <tr><td>3</td><td>Breakdown 44V Test</td><td>mA@LS_I1@12V</td><td>946.662</td><td>955.188</td><td>+0.83</td></tr>
+  </table>
+  <p class="note">428 欄中只有 2 欄超過 1σ，17 欄超過 0.5σ。IDDQ 108 欄在 CP1 最大位移 0.07σ、CP3 最大 0.38σ，沒有整體偏移。</p>
+</section>
+
+<section class="slide">
+  <h2>超規筆數：只有 CP2 Stand by current 值得看</h2>
+  <div class="cards">
+    <div class="card"><div class="lbl">CP1 超規讀值</div><div class="big"><span class="ok">89</span> / <span class="ng">72</span></div></div>
+    <div class="card"><div class="lbl">CP2 超規讀值</div><div class="big"><span class="ok">6</span> / <span class="ng">15</span></div></div>
+    <div class="card"><div class="lbl">CP3 超規讀值</div><div class="big"><span class="ok">13</span> / <span class="ng">10</span></div></div>
+  </div>
+  <ul style="font-size:clamp(14px,1.8vw,22px)">
+    <li>CP2 Stand by current：OK 1 筆、NG 12 筆。來自 NG 片 3 顆 die（Serial 3、103、512），4 個欄位全部約 90~105 µA，皆為 Bin 18</li>
+    <li>OK 片同一測項有 1 顆超規（Serial 2330，BP44V 98 µA，也是 Bin 18）</li>
+    <li>3 顆 die 位置分散（XY 38,21 / 34,30 / 47,41），佔 NG 片 CP2 的 0.12%，差異只有 3 顆 vs 1 顆</li>
+    <li>CP1 IDDQ 有 NG 片單顆讀值 8518（limit 50），造成標準差偏大，僅此一顆</li>
+  </ul>
+  <p class="note">超規讀值是各欄位逐筆累計，同一顆 die 可能被計多次。</p>
+</section>
+
+<section class="slide">
   <h2>結論</h2>
   <ul>
-    <li><b>沒有任何測項的筆數有明顯差異</b>：涵蓋率差最大僅 0.62 個百分點</li>
-    <li>原始筆數差來自 NG 片 CP2、CP3 多 15~16 顆 die，以及 CP1 前段 fail 較少，後段進入的 die 較多</li>
-    <li>IDDQ 原始筆數差最大（CP3 合計 +2024），但它有 108 欄，平均每欄約 +19 筆，與 die 數差一致</li>
-    <li>25A4 被判 NG 的原因不在測項筆數</li>
+    <li><b>筆數、Bin、量測值三方面都沒有明顯差異</b>：涵蓋率差最大 0.62 pp，中位數位移最大 1.12σ</li>
+    <li>原始筆數差來自 NG 片 CP2、CP3 多 15~16 顆 die，與測項本身無關</li>
+    <li>NG 片的 Pass 比例（Bin 1）在三個 CP 都略高於 OK 片</li>
+    <li>唯一可留意：CP2 Stand by current 有 3 顆 die 約 90~105 µA（OK 片 1 顆），數量太少，不足以說是異常</li>
+    <li>單看這份 CP 資料，看不出 25A4 比 19D0 差</li>
   </ul>
-  <p class="sub">建議下一步：比對 IDDQ、OTP、Gate 的量測值分佈與 fail bin 分佈。</p>
+  <p class="sub">建議下一步：確認 25A4 被判 NG 的依據（例如 wafer map 空間分佈、Strip test 或其他站別），再針對該項比對。</p>
 </section>
 
 </div>
@@ -140,6 +183,16 @@ document.querySelectorAll('.slide[data-cp]').forEach(s=>{
     return `<div class="bar-row"><span class="name" title="${r[0]}">${r[0]}</span><div class="track"><div class="fill" style="${st};background:${col}"></div></div><span>${d>=0?'+':''}${d.toFixed(2)}</span></div>`;
   }).join('')+`<div class="axis"><span>−${R}</span><span>0</span><span>+${R}</span></div>`;
 });
+// Bin 分佈 [Bin, OK, NG]
+const B={
+1:{ok:2588,ng:2588,rows:[[1,2519,2535],[3,15,13],[4,10,8],[5,1,0],[6,26,18],[10,4,5],[12,1,0],[16,1,1],[34,10,7],[36,1,1]]},
+2:{ok:2520,ng:2535,rows:[[1,2514,2530],[18,1,3],[19,3,1],[20,1,0],[32,0,1],[36,1,0]]},
+3:{ok:2514,ng:2530,rows:[[1,2505,2523],[10,4,3],[17,3,4],[18,2,0]]}};
+document.getElementById('bincards').innerHTML=[1,2,3].map(cp=>{
+  const b=B[cp];
+  return `<div class="card"><div class="lbl" style="margin-bottom:6px">CP${cp}　OK ${f(b.ok)} / NG ${f(b.ng)} die</div><table><tr><th>Bin</th><th>OK</th><th>NG</th><th>OK %</th><th>NG %</th></tr>`+
+   b.rows.map(r=>`<tr><td>${r[0]}${r[0]===1?'（Pass）':''}</td><td class="ok">${f(r[1])}</td><td class="ng">${f(r[2])}</td><td>${(r[1]/b.ok*100).toFixed(2)}</td><td>${(r[2]/b.ng*100).toFixed(2)}</td></tr>`).join('')+`</table></div>`;
+}).join('');
 const slides=[...document.querySelectorAll('.slide')];let i=0;
 function show(n){i=Math.max(0,Math.min(slides.length-1,n));slides.forEach((s,k)=>s.classList.toggle('active',k===i));
  document.getElementById('pg').textContent=(i+1)+' / '+slides.length;
