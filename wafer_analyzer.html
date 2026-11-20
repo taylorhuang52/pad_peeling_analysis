@@ -1,0 +1,589 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CP Wafer 分析工具</title>
+<style>
+:root{--bg:#f4f6fa;--card:#fff;--ink:#1f2937;--mute:#6b7280;--line:#e2e6ee;--blue:#2563eb;--red:#dc2626;--orange:#f59e0b;--green:#16a34a}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 "Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif}
+.wrap{max-width:1500px;margin:0 auto;padding:14px 18px 60px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+h1{font-size:18px;margin:0 0 8px}
+#drop{border:2px dashed #cfd6e4;border-radius:10px;padding:22px 12px;text-align:center;color:var(--mute);cursor:pointer;background:#fafbfd}
+#drop.over{background:#eaf1ff;border-color:var(--blue)}
+#drop b{color:var(--ink)}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:8px}
+.chip{border:1px solid var(--blue);background:var(--blue);color:#fff;border-radius:99px;padding:1px 12px;font-size:12px;cursor:pointer;user-select:none}
+.chip.off{background:#fff;color:var(--mute);border-color:var(--line)}
+.chip.lot{border-radius:6px;background:#0f766e;border-color:#0f766e}
+.chip.lot.off{background:#fff;color:var(--mute);border-color:var(--line)}
+.chip.ghost{background:#fff;color:var(--ink);border-color:var(--line)}
+.btn{border:1px solid var(--line);background:#fff;border-radius:6px;padding:4px 12px;cursor:pointer;font-size:13px;color:var(--ink)}
+.btn.on{background:var(--blue);color:#fff;border-color:var(--blue)}
+.btn:hover{border-color:var(--blue)}
+select,input[type=text],input[type=number]{border:1px solid var(--line);border-radius:6px;padding:4px 8px;font-size:13px;background:#fff;color:var(--ink)}
+.small{font-size:12px;color:var(--mute)}
+label.ck{font-size:12px;color:var(--mute);display:inline-flex;gap:4px;align-items:center;cursor:pointer}
+#legend{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--mute);flex-wrap:wrap}
+#cbar{width:230px;height:10px;border-radius:3px;background:linear-gradient(90deg,#1a2bd8,#17a2e6,#17d8c0,#3cdc3c,#d8d81a,#f08a1a,#d62d1f)}
+.grid{display:grid;gap:12px;margin-top:10px}
+.wcard{background:#fff;border:1px solid var(--line);border-radius:10px;padding:8px 10px}
+.wcard .t{font-weight:600;font-size:13px;white-space:nowrap}
+.wcard .t span{font-weight:400;color:var(--mute);font-size:12px}
+.wcard .s{font-size:11px;color:var(--mute);margin-bottom:4px;min-height:16px}
+.wcard canvas{display:block;background:#eef0f4;max-width:100%;border-radius:3px}
+table{border-collapse:collapse;width:100%;font-size:12.5px}
+th,td{padding:4px 8px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+th{color:var(--mute);font-weight:500;background:#fafbfd;position:sticky;top:0}
+th:first-child,td:first-child,td.l,th.l{text-align:left}
+tr.sub td{font-weight:600;background:#f4f7fb}
+.scroll{overflow:auto;max-height:420px}
+#tip{position:fixed;display:none;pointer-events:none;background:#111827ee;color:#fff;padding:5px 9px;border-radius:6px;font-size:12px;line-height:1.5;z-index:20;white-space:nowrap}
+#msg{font-size:12px;color:#b45309;white-space:pre-line}
+svg text{font-family:inherit}
+.pbar{display:none;height:4px;background:#dbe4f5;border-radius:3px;overflow:hidden;margin-top:8px}
+.pbar i{display:block;height:100%;background:var(--blue);width:0}
+.hint{color:var(--mute);font-size:12px;padding:30px;text-align:center}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>CP Wafer 分析工具　<span class="small">匯入 dlog CSV / ZIP / 資料夾，依 Lot / Wafer # 檢視 Pass-Fail、各測項 Heatmap、分佈、柏拉圖、良率趨勢</span></h1>
+  <div class="card">
+    <div id="drop"><b>拖曳 / 點擊選擇 log（.csv 或 .zip，可多選，也可拖入整個資料夾）</b><br><span class="small">自動略過重複載入的檔案（同 Wafer ID 且同站別，或檔名為 *_1.csv 之類的複本）。資料只在瀏覽器內處理，不會上傳。</span></div>
+    <input id="fin" type="file" multiple hidden>
+    <input id="din" type="file" webkitdirectory multiple hidden>
+    <div class="row">
+      <button class="btn" id="bFiles">選擇檔案</button>
+      <button class="btn" id="bDir">選擇資料夾</button>
+      <button class="btn" id="bClear">清除全部</button>
+      <span class="small">Pass Bin：</span><input id="passBin" type="text" value="1" size="6" title="可輸入多個，以逗號分隔">
+      <span id="stat" class="small"></span>
+    </div>
+    <div class="pbar" id="pbar"><i></i></div>
+    <div id="msg"></div>
+    <div class="row" id="cpRow"></div>
+    <div class="row" id="lotRow"></div>
+    <div class="row" id="chipRow"></div>
+  </div>
+
+  <div class="row" id="tabs" style="margin-top:12px">
+    <button class="btn" data-tab="yield">Pass / Fail</button>
+    <button class="btn" data-tab="heat">Heatmap</button>
+    <button class="btn" data-tab="hist">上下限 / 分佈</button>
+    <button class="btn" data-tab="pareto">柏拉圖</button>
+    <button class="btn" data-tab="trend">良率趨勢</button>
+    <span style="flex:1"></span>
+    <button class="btn" id="bCsv">匯出摘要 CSV</button>
+    <button class="btn" id="bPng">匯出目前 wafer map 為 PNG</button>
+  </div>
+  <div class="row" id="opts"></div>
+  <div class="card" id="legendBox" style="margin-top:8px;display:none"><div id="legend"></div></div>
+  <div id="main"><div class="hint">尚未載入資料，請先匯入 log。</div></div>
+</div>
+<div id="tip"></div>
+
+<script>
+'use strict';
+// ====================== 基本工具 ======================
+const $=s=>document.querySelector(s);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const tick=()=>new Promise(r=>setTimeout(r,0));
+const NO_LIMIT=99999;
+const PALETTE=['#2563eb','#f59e0b','#16a34a','#dc2626','#7c3aed','#0891b2','#db2777','#65a30d','#ea580c','#4f46e5','#0d9488','#b45309'];
+const JET=['#1a2bd8','#17a2e6','#17d8c0','#3cdc3c','#d8d81a','#f08a1a','#d62d1f'];
+const JETRGB=JET.map(h=>[1,3,5].map(i=>parseInt(h.slice(i,i+2),16)));
+function jet(t){t=Math.max(0,Math.min(1,t));const p=t*(JET.length-1),i=Math.min(Math.floor(p),JET.length-2),f=p-i;const a=JETRGB[i],b=JETRGB[i+1];
+  return `rgb(${Math.round(a[0]+(b[0]-a[0])*f)},${Math.round(a[1]+(b[1]-a[1])*f)},${Math.round(a[2]+(b[2]-a[2])*f)})`}
+function pctile(sorted,p){if(!sorted.length)return NaN;const i=(sorted.length-1)*p,l=Math.floor(i),h=Math.ceil(i);return sorted[l]+(sorted[h]-sorted[l])*(i-l)}
+function fmt(v,d=4){if(v===null||v===undefined||!isFinite(v))return '—';const a=Math.abs(v);if(a!==0&&(a>=1e6||a<1e-4))return v.toExponential(3);return (+v.toFixed(d)).toString()}
+function niceTicks(min,max,n=5){if(min===max){max=min+1}const span=max-min,step0=span/n,mag=Math.pow(10,Math.floor(Math.log10(step0))),r=step0/mag;
+  const step=(r<1.5?1:r<3?2:r<7?5:10)*mag;const s=Math.ceil(min/step-1e-9)*step,t=[];for(let v=s;v<=max+step*1e-6;v+=step)t.push(+v.toPrecision(12));return {ticks:t,step}}
+function download(name,blob){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},500)}
+
+// ====================== 解析 ======================
+function csvSplit(line,d=','){const out=[];let cur='',q=false;for(let i=0;i<line.length;i++){const c=line[i];if(q){if(c==='"'){if(line[i+1]==='"'){cur+='"';i++}else q=false}else cur+=c}else if(c==='"')q=true;else if(c===d){out.push(cur);cur=''}else cur+=c}out.push(cur);return out}
+function parseLimit(s){const v=parseFloat(s);return (isFinite(v)&&Math.abs(v)<NO_LIMIT)?v:null}
+function parseWaferId(wid,lotId){
+  const m=/^(.*?)[-_](\d{1,3})([A-Za-z0-9]*)$/.exec(wid||'');
+  if(m)return {lot:m[1],wno:m[2],suffix:m[3]};
+  return {lot:(lotId||'').split('.')[0]||'(未知Lot)',wno:'',suffix:''}}
+// 回傳 run 物件；失敗時回傳 {error:'原因'}
+function parseLog(text,fname){
+  text=text.replace(/^﻿/,'');
+  const lines=text.split(/\r\n|\n|\r/);
+  // 表頭列：第一格為 Serial#（容許引號、前後空白，分隔符號可為逗號/分號/Tab）
+  let h=-1;for(let i=0;i<Math.min(lines.length,500);i++){if(/^\s*"?\s*Serial\s*#?\s*"?\s*[,;\t]/i.test(lines[i])){h=i;break}}
+  if(h<0)return {error:`找不到「Serial#」表頭列（檔案共 ${lines.length} 行；前 3 行：${lines.slice(0,3).map(l=>'['+l.slice(0,40)+']').join('')}）`};
+  const cnt=c=>lines[h].split(c).length;
+  const D=[',',';','\t'].sort((p,q)=>cnt(q)-cnt(p))[0];
+  const sp=l=>l.indexOf('"')>=0?csvSplit(l,D):l.split(D);
+  const meta={};
+  for(let i=0;i<h;i++){const m=/^\s*"?([^:,;\t"]+?)\s*:\s*(.*?)"?\s*[,;\t]*\s*$/.exec(lines[i]);if(m&&!(m[1].trim() in meta))meta[m[1].trim()]=m[2].trim()}
+  const above=[];for(let i=h-1;i>=0&&above.length<4;i--){if(lines[i].replace(/["\s,;\t]/g,'')!=='')above.push(i)}
+  let iLo=-1,iHi=-1,iName,iGrp;
+  if(above.length>=4)[iLo,iHi,iName,iGrp]=above;
+  else if(above.length===3){[iLo,iHi,iName]=above;iGrp=iName}
+  else if(above.length===2){[iName,iGrp]=above}
+  else return {error:'表頭上方找不到測項名稱列（至少需要測項名稱列）'};
+  const hdr=sp(lines[h]).map(s=>s.trim());
+  const ix=n=>hdr.findIndex(s=>s.toLowerCase().replace(/[\s_]/g,'')===n);
+  const cBin=ix('bin#'),cX=ix('xadr'),cY=ix('yadr'),cSite=ix('site#');
+  if(cBin<0||cX<0||cY<0)return {error:`表頭缺少 Bin#／XAdr／YAdr 欄位（實際前 8 欄：${hdr.slice(0,8).join(' | ')}）`};
+  const start=Math.max(cBin,cX,cY,cSite)+1;
+  const grp=sp(lines[iGrp]),nam=sp(lines[iName]),hi=iHi>=0?sp(lines[iHi]):[],lo=iLo>=0?sp(lines[iLo]):[];
+  const cols=[],occ={};
+  for(let j=start;j<hdr.length;j++){
+    const g=(grp[j]||'').trim(),n=(nam[j]||'').trim();if(!g&&!n)continue;
+    const k0=g+'|'+n;occ[k0]=(occ[k0]||0)+1;
+    cols.push({j,group:g,name:n,unit:hdr[j]||'',key:k0+'#'+occ[k0],occ:occ[k0],hi:parseLimit(hi[j]),lo:parseLimit(lo[j])})}
+  if(!cols.length)return {error:'找不到任何測項欄位'};
+  const cap=Math.max(1,lines.length-h-1);
+  const x=new Int16Array(cap),y=new Int16Array(cap),bin=new Int16Array(cap),site=new Int16Array(cap);
+  const vals=cols.map(()=>{const a=new Float32Array(cap);a.fill(NaN);return a});
+  let n=0;
+  for(let i=h+1;i<lines.length;i++){
+    const L=lines[i];if(!L)continue;
+    const f=sp(L);
+    if(f.length<=cY||!/^\s*"?-?\d+"?\s*$/.test(f[0]))continue;
+    x[n]=+f[cX];y[n]=+f[cY];bin[n]=+f[cBin];site[n]=cSite>=0?+f[cSite]:0;
+    for(let c=0;c<cols.length;c++){const s=f[cols[c].j];if(s!==undefined&&s!==''){const v=+s;if(v===v)vals[c][n]=v}}
+    n++}
+  if(!n)return {error:`表頭正常（${cols.length} 個測項），但沒有讀到任何 die 資料列`};
+  const wid=meta['Wafer ID']||fname.replace(/\.[^.]+$/,'');
+  const w=parseWaferId(wid,meta['Lot ID']);
+  let cp=null;for(const s of [fname,meta['Test Program Name'],meta['Production ID']]){const m=s&&/CP\s*[-_]?\s*(\d+)/i.exec(s);if(m){cp='CP'+m[1];break}}
+  if(!cp)cp='CP?';
+  return {fname,waferId:wid,lotId:meta['Lot ID']||'',lot:w.lot,wno:w.wno,suffix:w.suffix,cp,meta,
+    n,x:x.subarray(0,n),y:y.subarray(0,n),bin:bin.subarray(0,n),site:site.subarray(0,n),
+    cols,vals:vals.map(a=>a.subarray(0,n)),colIdx:new Map(cols.map((c,i)=>[c.key,i]))}}
+
+// ---- zip（用瀏覽器內建 DecompressionStream，離線可用）----
+async function readZip(buf){
+  const dv=new DataView(buf),u8=new Uint8Array(buf);let e=-1;
+  for(let i=buf.byteLength-22;i>=Math.max(0,buf.byteLength-70000);i--){if(dv.getUint32(i,true)===0x06054b50){e=i;break}}
+  if(e<0)throw new Error('不是有效的 zip');
+  const cnt=dv.getUint16(e+10,true);let p=dv.getUint32(e+16,true);const out=[];
+  for(let k=0;k<cnt;k++){
+    if(dv.getUint32(p,true)!==0x02014b50)break;
+    const method=dv.getUint16(p+10,true),csz=dv.getUint32(p+20,true),nl=dv.getUint16(p+28,true),el=dv.getUint16(p+30,true),cl=dv.getUint16(p+32,true),off=dv.getUint32(p+42,true);
+    const flags=dv.getUint16(p+8,true);
+    const name=new TextDecoder(flags&0x800?'utf-8':'utf-8').decode(u8.subarray(p+46,p+46+nl));
+    p+=46+nl+el+cl;
+    if(name.endsWith('/'))continue;
+    const lnl=dv.getUint16(off+26,true),lel=dv.getUint16(off+28,true),ds=off+30+lnl+lel;
+    const raw=u8.subarray(ds,ds+csz);
+    out.push({name,method,raw})}
+  return out}
+async function inflate(raw){
+  const ds=new DecompressionStream('deflate-raw');const w=ds.writable.getWriter();w.write(raw);w.close();
+  return await new Response(ds.readable).arrayBuffer()}
+
+// ====================== 狀態 ======================
+const S={runs:[],tests:{},cp:null,sel:new Set(),tab:'yield',test:null,nextId:1,passBins:new Set([1]),
+  opt:{binMode:'pf',colorMode:'data',flipX:false,flipY:false,circle:true,size:260,yMode:'count',group:'all',bins:40,range:'auto',
+       parTop:15,parSrc:'test',trUnit:'wafer',trStage:'cur',filter:''}};
+const isPass=b=>S.passBins.has(b);
+const runLabel=r=>r.wno?`${r.lot}-${r.wno}`:r.waferId;
+function labelOf(r){const same=S.runs.filter(q=>q.cp===r.cp&&runLabel(q)===runLabel(r));return same.length>1?`${runLabel(r)}${r.suffix}`:runLabel(r)}
+const byWafer=(a,b)=>a.lot.localeCompare(b.lot,undefined,{numeric:true})||(+a.wno-+b.wno)||a.waferId.localeCompare(b.waferId);
+const cpOrder=(a,b)=>a.localeCompare(b,undefined,{numeric:true});
+const curRuns=()=>S.runs.filter(r=>r.cp===S.cp).sort(byWafer);
+const selRuns=()=>curRuns().filter(r=>S.sel.has(r.id));
+function yieldOf(r){let p=0;for(let i=0;i<r.n;i++)if(isPass(r.bin[i]))p++;return {n:r.n,pass:p,fail:r.n-p,y:r.n?p/r.n*100:NaN}}
+function rebuildTests(){
+  S.tests={};
+  for(const r of S.runs){const t=S.tests[r.cp]||(S.tests[r.cp]=[]);const have=new Set(t.map(q=>q.key));
+    for(const c of r.cols)if(!have.has(c.key)){have.add(c.key);t.push({key:c.key,group:c.group,name:c.name,unit:c.unit,occ:c.occ,
+      label:`${c.group?c.group+' · ':''}${c.name}${c.unit?` (${c.unit})`:''}${c.occ>1?` #${c.occ}`:''}`})}}}
+function limitsOf(runs,key){for(const r of runs){const i=r.colIdx.get(key);if(i!==undefined){const c=r.cols[i];return {lo:c.lo,hi:c.hi,unit:c.unit}}}return {lo:null,hi:null,unit:''}}
+const colOf=(r,key)=>{const i=r.colIdx.get(key);return i===undefined?null:{c:r.cols[i],v:r.vals[i]}};
+
+// ====================== 載入 ======================
+let msgs=[];
+function setMsg(){$('#msg').textContent=msgs.join('\n')}
+async function addFiles(items){
+  // items: [{name, getText:()=>Promise<string>}]
+  if(!items.length){msgs.push('沒有找到可匯入的檔案（支援 .csv / .txt / .zip，或含有這些檔案的資料夾）');setMsg();return}
+  const before=S.runs.length;
+  const pb=$('#pbar');pb.style.display='block';
+  // 略過 *_1.csv 之類的複本
+  const names=new Set(items.map(i=>i.name));
+  const list=items.filter(it=>{const m=/^(.*)_(\d+)(\.[^.]+)$/.exec(it.name);if(m&&names.has(m[1]+m[3])){msgs.push(`略過複本：${it.name}`);return false}return true});
+  let k=0;
+  for(const it of list){
+    k++;pb.firstElementChild.style.width=(k/list.length*100)+'%';$('#stat').textContent=`載入中 ${k}/${list.length}：${it.name}`;await tick();
+    try{
+      const run=parseLog(await it.getText(),it.name.split('/').pop());
+      if(run.error){msgs.push(`無法匯入 ${it.name}：${run.error}`);continue}
+      if(S.runs.some(q=>q.waferId===run.waferId&&q.cp===run.cp)){msgs.push(`重複略過：${run.waferId} ${run.cp}（${it.name}）`);continue}
+      run.id=S.nextId++;S.runs.push(run);S.sel.add(run.id);
+    }catch(e){msgs.push(`讀取失敗：${it.name}（${e.message}）`)}}
+  pb.style.display='none';
+  msgs.push(`本次匯入：成功 ${S.runs.length-before} 份 / 共 ${list.length} 份`);
+  rebuildTests();
+  const cps=[...new Set(S.runs.map(r=>r.cp))].sort(cpOrder);
+  if(!S.cp||!cps.includes(S.cp))S.cp=cps[0]||null;
+  if(S.cp&&(!S.test||!(S.tests[S.cp]||[]).some(t=>t.key===S.test)))S.test=(S.tests[S.cp]||[])[0]?.key||null;
+  setMsg();renderAll()}
+async function filesToItems(files){
+  const items=[];
+  for(const f of files){
+    const nm=f.webkitRelativePath||f.name;
+    if(/\.zip$/i.test(f.name)){
+      try{const ents=await readZip(await f.arrayBuffer());
+        if(!ents.length)msgs.push(`zip 裡面沒有檔案：${f.name}`);
+        for(const e of ents){if(/(^|\/)(__MACOSX\/|\.DS_Store$|Thumbs\.db$)/i.test(e.name)||/\.(zip|png|jpg|pdf|xlsx?|docx?)$/i.test(e.name))continue;
+          items.push({name:e.name,getText:async()=>new TextDecoder().decode(e.method===0?e.raw:e.method===8?await inflate(e.raw):(()=>{throw new Error('不支援的壓縮方式')})())})}
+      }catch(err){msgs.push(`zip 失敗：${f.name}（${err.message}）`)}
+    }else if(/\.(png|jpe?g|gif|pdf|xlsx?|docx?|exe|dll)$/i.test(f.name))msgs.push(`略過不支援的檔案類型：${f.name}（請先另存為 CSV）`);
+    else items.push({name:nm,getText:()=>f.text()})}
+  return items}
+async function walkEntry(en,out){
+  if(en.isFile){await new Promise(res=>en.file(f=>{out.push(f);res()},res))}
+  else if(en.isDirectory){const rd=en.createReader();let all=[];for(;;){const b=await new Promise(res=>rd.readEntries(res,()=>res([])));if(!b.length)break;all=all.concat([...b])}for(const c of all)await walkEntry(c,out)}}
+
+const drop=$('#drop');
+drop.onclick=()=>$('#fin').click();
+$('#bFiles').onclick=()=>$('#fin').click();$('#bDir').onclick=()=>$('#din').click();
+$('#fin').onchange=async e=>{const it=await filesToItems([...e.target.files]);e.target.value='';await addFiles(it)};
+$('#din').onchange=async e=>{const it=await filesToItems([...e.target.files]);e.target.value='';await addFiles(it)};
+['dragenter','dragover'].forEach(t=>drop.addEventListener(t,e=>{e.preventDefault();drop.classList.add('over')}));
+['dragleave','drop'].forEach(t=>drop.addEventListener(t,e=>{e.preventDefault();drop.classList.remove('over')}));
+async function handleDrop(e){
+  e.preventDefault();drop.classList.remove('over');
+  const files=[];const its=[...(e.dataTransfer.items||[])];
+  const ens=its.map(i=>i.webkitGetAsEntry?i.webkitGetAsEntry():null);   // 必須同步取得，await 之後 dataTransfer 會失效
+  const flist=[...(e.dataTransfer.files||[])];
+  try{
+    if(ens.length&&ens.every(Boolean)){for(const en of ens)await walkEntry(en,files)}
+    else files.push(...flist);
+    if(!files.length)files.push(...flist);
+  }catch(err){msgs.push(`讀取拖放內容失敗：${err.message}`);files.push(...flist)}
+  await addFiles(await filesToItems(files))}
+drop.addEventListener('drop',handleDrop);
+addEventListener('dragover',e=>e.preventDefault());
+addEventListener('drop',e=>{if(!drop.contains(e.target))handleDrop(e)});
+addEventListener('error',e=>{msgs.push(`程式錯誤：${e.message}`);setMsg()});
+addEventListener('unhandledrejection',e=>{msgs.push(`程式錯誤：${e.reason&&e.reason.message||e.reason}`);setMsg()});
+(function(){const miss=[];if(typeof DecompressionStream==='undefined')miss.push('DecompressionStream（無法匯入 zip，請解壓縮後改用資料夾或 CSV）');if(!(File.prototype.text))miss.push('File.text()');
+  if(miss.length){msgs.push('此瀏覽器不支援：'+miss.join('、')+'。建議使用最新版 Chrome 或 Edge。');setMsg()}})();
+$('#bClear').onclick=()=>{S.runs=[];S.sel.clear();S.cp=null;S.test=null;S.tests={};msgs=[];setMsg();renderAll()};
+$('#passBin').onchange=e=>{const s=new Set(e.target.value.split(/[,\s]+/).map(Number).filter(v=>isFinite(v)&&e.target.value.trim()!==''));S.passBins=s.size?s:new Set([1]);renderAll()};
+
+// ====================== 頂部控制 ======================
+function renderTop(){
+  const cps=[...new Set(S.runs.map(r=>r.cp))].sort(cpOrder);
+  const dies=S.runs.reduce((a,r)=>a+r.n,0);
+  const wafers=new Set(S.runs.map(r=>r.waferId)).size;
+  $('#stat').textContent=S.runs.length?`已載入 ${wafers} 片 wafer（${S.runs.length} 份 log），共 ${dies.toLocaleString()} 顆 die，${cps.length} 個站別`+(S.cp?`，${S.cp} 有 ${(S.tests[S.cp]||[]).length} 個測項`:''):'';
+  $('#cpRow').innerHTML=cps.length?`<span class="small">站別：</span>`+cps.map(c=>`<button class="btn ${c===S.cp?'on':''}" data-cp="${c}">${c}（${S.runs.filter(r=>r.cp===c).length}）</button>`).join(''):'';
+  const runs=curRuns();
+  const lots=[...new Set(runs.map(r=>r.lot))];
+  $('#lotRow').innerHTML=lots.length?`<span class="small">Lot：</span>`+lots.map(l=>{const rs=runs.filter(r=>r.lot===l);const on=rs.every(r=>S.sel.has(r.id));return `<span class="chip lot ${on?'':'off'}" data-lot="${esc(l)}">${esc(l)}（${rs.length}）</span>`}).join(''):'';
+  $('#chipRow').innerHTML=runs.length?`<span class="small">Wafer：</span>`+runs.map(r=>`<span class="chip ${S.sel.has(r.id)?'':'off'}" data-id="${r.id}" title="${esc(r.waferId)}　${esc(r.fname)}">${esc(labelOf(r))}</span>`).join('')+`<span class="chip ghost" data-all="1">全選/全不選</span>`:'';
+  document.querySelectorAll('#tabs [data-tab]').forEach(b=>b.classList.toggle('on',b.dataset.tab===S.tab))}
+document.addEventListener('click',e=>{
+  const t=e.target.closest('[data-cp],[data-lot],[data-id],[data-all],[data-tab]');if(!t)return;
+  if(t.dataset.cp){S.cp=t.dataset.cp;const ts=S.tests[S.cp]||[];if(!ts.some(q=>q.key===S.test))S.test=ts[0]?.key||null}
+  else if(t.dataset.lot!==undefined){const rs=curRuns().filter(r=>r.lot===t.dataset.lot);const on=rs.every(r=>S.sel.has(r.id));rs.forEach(r=>on?S.sel.delete(r.id):S.sel.add(r.id))}
+  else if(t.dataset.id){const id=+t.dataset.id;S.sel.has(id)?S.sel.delete(id):S.sel.add(id)}
+  else if(t.dataset.all){const rs=curRuns();const all=rs.every(r=>S.sel.has(r.id));rs.forEach(r=>all?S.sel.delete(r.id):S.sel.add(r.id))}
+  else if(t.dataset.tab)S.tab=t.dataset.tab;
+  renderAll()});
+
+// ====================== Tooltip ======================
+const tip=$('#tip');
+function showTip(e,html){tip.innerHTML=html;tip.style.display='block';tip.style.left=Math.min(e.clientX+14,innerWidth-260)+'px';tip.style.top=Math.min(e.clientY+14,innerHeight-90)+'px'}
+const hideTip=()=>tip.style.display='none';
+
+// ====================== Wafer map 繪製 ======================
+function extents(runs){let x0=1e9,x1=-1e9,y0=1e9,y1=-1e9;for(const r of runs)for(let i=0;i<r.n;i++){if(r.x[i]<x0)x0=r.x[i];if(r.x[i]>x1)x1=r.x[i];if(r.y[i]<y0)y0=r.y[i];if(r.y[i]>y1)y1=r.y[i]}return {x0,x1,y0,y1}}
+function mapIndex(r){if(!r._map){const m=new Map();for(let i=0;i<r.n;i++)m.set(r.x[i]*10000+r.y[i],i);r._map=m}return r._map}
+function makeCanvas(ext,size){
+  const nx=ext.x1-ext.x0+1,ny=ext.y1-ext.y0+1,o=S.opt;
+  const w=size,h=o.circle?size:Math.round(size*ny/nx*(1));
+  const cv=document.createElement('canvas'),dpr=window.devicePixelRatio||1;
+  cv.style.width=w+'px';cv.style.height=h+'px';cv.width=w*dpr;cv.height=h*dpr;
+  const g=cv.getContext('2d');g.setTransform(dpr,0,0,dpr,0,0);
+  cv.geo={x0:ext.x0,y0:ext.y0,nx,ny,cw:w/nx,ch:h/ny,fx:o.flipX,fy:o.flipY,w,h};return {cv,g}}
+function cellRect(geo,x,y){const cx=geo.fx?(geo.nx-1-(x-geo.x0)):(x-geo.x0),cy=geo.fy?(geo.ny-1-(y-geo.y0)):(y-geo.y0);return [cx*geo.cw,cy*geo.ch]}
+function paintCells(cv,g,r,colorFn,frameFn){
+  const geo=cv.geo,{cw,ch}=geo;
+  for(let i=0;i<r.n;i++){const col=colorFn(i);const [px,py]=cellRect(geo,r.x[i],r.y[i]);
+    g.fillStyle=col;g.fillRect(px+.3,py+.3,cw-.6,ch-.6);
+    if(frameFn&&frameFn(i)){g.strokeStyle='#000';g.lineWidth=1.3;g.strokeRect(px+.2,py+.2,cw-.4,ch-.4)}}}
+function dieAt(cv,e,r){const b=cv.getBoundingClientRect(),geo=cv.geo;
+  const cx=Math.floor((e.clientX-b.left)/b.width*geo.nx),cy=Math.floor((e.clientY-b.top)/b.height*geo.ny);
+  if(cx<0||cy<0||cx>=geo.nx||cy>=geo.ny)return -1;
+  const x=geo.x0+(geo.fx?geo.nx-1-cx:cx),y=geo.y0+(geo.fy?geo.ny-1-cy:cy);
+  const i=mapIndex(r).get(x*10000+y);return i===undefined?-1:i}
+
+// ====================== 分頁：Pass/Fail ======================
+const BIN_COL={};const BIN_PAL=['#f59e0b','#ef4444','#a855f7','#14b8a6','#ec4899','#84cc16','#f97316','#6366f1','#06b6d4','#eab308','#d946ef','#22c55e','#fb7185','#0ea5e9'];
+function binColor(b){if(isPass(b))return '#9bd8a8';if(!(b in BIN_COL))BIN_COL[b]=BIN_PAL[Object.keys(BIN_COL).length%BIN_PAL.length];return BIN_COL[b]}
+function binCounts(r){const m=new Map();for(let i=0;i<r.n;i++)m.set(r.bin[i],(m.get(r.bin[i])||0)+1);return m}
+function renderYield(){
+  const runs=selRuns();const m=$('#main');
+  if(!runs.length){m.innerHTML='<div class="hint">請至少選取一片 wafer。</div>';return}
+  const ext=extents(runs),o=S.opt;
+  const allBins=new Set();runs.forEach(r=>binCounts(r).forEach((_,b)=>allBins.add(b)));
+  const bins=[...allBins].sort((a,b)=>a-b);
+  // legend
+  $('#legendBox').style.display='block';
+  $('#legend').innerHTML=o.binMode==='pf'?`<span><i style="display:inline-block;width:12px;height:12px;background:#9bd8a8;vertical-align:-1px"></i> Pass（Bin ${[...S.passBins].join(',')}）</span><span><i style="display:inline-block;width:12px;height:12px;background:#ef4444;vertical-align:-1px"></i> Fail</span><span>滑鼠移到 die 上可看座標與 Bin</span>`
+   :bins.map(b=>`<span><i style="display:inline-block;width:12px;height:12px;background:${binColor(b)};vertical-align:-1px"></i> Bin ${b}${isPass(b)?'（Pass）':''}</span>`).join('');
+  m.innerHTML='';
+  const grid=document.createElement('div');grid.className='grid';grid.style.gridTemplateColumns=`repeat(auto-fill,minmax(${o.size+22}px,1fr))`;m.appendChild(grid);
+  for(const r of runs){
+    const y=yieldOf(r),card=document.createElement('div');card.className='wcard';
+    card.innerHTML=`<div class="t">${esc(labelOf(r))} <span>良率 ${fmt(y.y,2)}% (${y.pass}/${y.n})</span></div><div class="s">${esc(r.waferId)}　Fail ${y.fail}</div>`;
+    const {cv,g}=makeCanvas(ext,o.size);
+    paintCells(cv,g,r,i=>o.binMode==='pf'?(isPass(r.bin[i])?'#9bd8a8':'#ef4444'):binColor(r.bin[i]));
+    cv.onmousemove=e=>{const i=dieAt(cv,e,r);if(i<0){hideTip();return}showTip(e,`${esc(labelOf(r))}<br>(${r.x[i]}, ${r.y[i]})　Site ${r.site[i]}<br>Bin ${r.bin[i]}${isPass(r.bin[i])?'（Pass）':'（Fail）'}`)};cv.onmouseleave=hideTip;
+    card.appendChild(cv);grid.appendChild(card)}
+  // 明細表
+  const wrap=document.createElement('div');wrap.className='card';wrap.style.marginTop='12px';
+  let h=`<div class="small" style="margin-bottom:6px"><b>${S.cp} 各片 Pass / Fail 與 Bin 分佈</b>（依 Lot 小計；Pass Bin = ${[...S.passBins].join(',')}）</div><div class="scroll"><table><tr><th class="l">Lot</th><th class="l">Wafer #</th><th class="l">Wafer ID</th><th>測試 die</th><th>Pass</th><th>Fail</th><th>良率 %</th>${bins.map(b=>`<th>Bin ${b}</th>`).join('')}</tr>`;
+  const lots=[...new Set(runs.map(r=>r.lot))];
+  for(const l of lots){const rs=runs.filter(r=>r.lot===l);let tn=0,tp=0;const tb=new Map();
+    for(const r of rs){const y=yieldOf(r),bc=binCounts(r);tn+=y.n;tp+=y.pass;bc.forEach((v,b)=>tb.set(b,(tb.get(b)||0)+v));
+      h+=`<tr><td class="l">${esc(l)}</td><td class="l">${esc(r.wno||'—')}</td><td class="l">${esc(r.waferId)}</td><td>${y.n}</td><td>${y.pass}</td><td>${y.fail}</td><td>${fmt(y.y,2)}</td>${bins.map(b=>`<td>${bc.get(b)||''}</td>`).join('')}</tr>`}
+    if(rs.length>1)h+=`<tr class="sub"><td class="l">${esc(l)} 小計</td><td class="l"></td><td class="l"></td><td>${tn}</td><td>${tp}</td><td>${tn-tp}</td><td>${fmt(tp/tn*100,2)}</td>${bins.map(b=>`<td>${tb.get(b)||''}</td>`).join('')}</tr>`}
+  h+='</table></div>';
+  // 跨站別良率矩陣
+  const cps=[...new Set(S.runs.map(r=>r.cp))].sort(cpOrder);
+  if(cps.length>1){
+    const keys=new Map();S.runs.forEach(r=>{const k=r.lot+'\u0001'+r.wno+'\u0001'+(r.wno?'':r.waferId);if(!keys.has(k))keys.set(k,r)});
+    const ws=[...keys.values()].sort(byWafer);
+    h+=`<div class="small" style="margin:12px 0 6px"><b>跨站別良率（Bin Pass ÷ 測試 die）</b></div><div class="scroll"><table><tr><th class="l">Lot</th><th class="l">Wafer #</th>${cps.map(c=>`<th>${c} 良率 %</th><th>${c} die</th>`).join('')}</tr>`;
+    for(const w of ws){h+=`<tr><td class="l">${esc(w.lot)}</td><td class="l">${esc(w.wno||w.waferId)}</td>`;
+      for(const c of cps){const r=S.runs.find(q=>q.cp===c&&q.lot===w.lot&&q.wno===w.wno&&(w.wno||q.waferId===w.waferId));if(r){const y=yieldOf(r);h+=`<td>${fmt(y.y,2)}</td><td>${y.n}</td>`}else h+='<td>—</td><td>—</td>'}
+      h+='</tr>'}
+    h+='</table></div>'}
+  wrap.innerHTML=h;m.appendChild(wrap)}
+
+// ====================== 分頁：Heatmap ======================
+function gatherVals(runs,key){const out=[];for(const r of runs){const c=colOf(r,key);if(!c)continue;for(let i=0;i<c.v.length;i++){const v=c.v[i];if(v===v)out.push(v)}}return out}
+function renderHeat(){
+  const runs=selRuns(),m=$('#main'),o=S.opt;
+  if(!runs.length||!S.test){m.innerHTML='<div class="hint">請至少選取一片 wafer，並選擇測項。</div>';return}
+  const lim=limitsOf(runs,S.test),all=gatherVals(runs,S.test).sort((a,b)=>a-b);
+  let vmin=pctile(all,.01),vmax=pctile(all,.99);
+  if(o.colorMode==='spec'&&lim.lo!==null&&lim.hi!==null){vmin=lim.lo;vmax=lim.hi}
+  if(!(vmax>vmin)){vmin=all[0]??0;vmax=(all[all.length-1]??1);if(vmax===vmin)vmax=vmin+1}
+  const t=(S.tests[S.cp]||[]).find(q=>q.key===S.test);
+  $('#legendBox').style.display='block';
+  $('#legend').innerHTML=`<span>顏色範圍${o.colorMode==='spec'&&lim.lo!==null&&lim.hi!==null?'＝規格下限~上限':'取 1%~99% 分位'}：${fmt(vmin)}</span><div id="cbar"></div><span>${fmt(vmax)}${t&&t.unit?' '+esc(t.unit):''}；黑框＝超出上下限（LSL ${fmt(lim.lo)} / USL ${fmt(lim.hi)}），灰＝未測/無讀值　滑鼠移到 die 上可看座標與數值</span>`;
+  const ext=extents(runs);m.innerHTML='';
+  const grid=document.createElement('div');grid.className='grid';grid.style.gridTemplateColumns=`repeat(auto-fill,minmax(${o.size+22}px,1fr))`;m.appendChild(grid);
+  for(const r of runs){
+    const c=colOf(r,S.test),y=yieldOf(r);
+    const card=document.createElement('div');card.className='wcard';
+    let oos=0,nv=0;if(c){const {lo,hi}=c.c;for(let i=0;i<r.n;i++){const v=c.v[i];if(v===v){nv++;if((hi!==null&&v>hi)||(lo!==null&&v<lo))oos++}}}
+    card.innerHTML=`<div class="t">${esc(labelOf(r))} <span>良率 ${fmt(y.y,2)}% (${y.pass}/${y.n})</span></div><div class="s">${c?`讀值 ${nv}　超規 ${oos}`:'此片沒有這個測項'}</div>`;
+    const {cv,g}=makeCanvas(ext,o.size);
+    if(c){const {lo,hi}=c.c;
+      paintCells(cv,g,r,i=>{const v=c.v[i];return v===v?jet((v-vmin)/(vmax-vmin)):'#c8ccd4'},i=>{const v=c.v[i];return v===v&&((hi!==null&&v>hi)||(lo!==null&&v<lo))});
+      cv.onmousemove=e=>{const i=dieAt(cv,e,r);if(i<0){hideTip();return}const v=c.v[i];const bad=v===v&&((hi!==null&&v>hi)||(lo!==null&&v<lo));
+        showTip(e,`${esc(labelOf(r))}　(${r.x[i]}, ${r.y[i]})　Site ${r.site[i]}<br>Bin ${r.bin[i]}<br>${v===v?`<b>${fmt(v,5)}</b> ${esc(c.c.unit)}${bad?' <span style="color:#fca5a5">超規</span>':''}`:'無讀值'}`)}}
+    else paintCells(cv,g,r,()=>'#c8ccd4');
+    cv.onmouseleave=hideTip;card.appendChild(cv);grid.appendChild(card)}}
+
+// ====================== SVG 圖表輔助 ======================
+function svgOpen(W,H){return `<svg viewBox="0 0 ${W} ${H}" width="100%" style="max-width:${W}px;display:block;margin:auto" xmlns="http://www.w3.org/2000/svg">`}
+function chartW(){return Math.max(560,Math.min(1300,($('#main').clientWidth||900)-30))}
+
+// ====================== 分頁：分佈 ======================
+function renderHist(){
+  const runs=selRuns(),m=$('#main'),o=S.opt;$('#legendBox').style.display='none';
+  if(!runs.length||!S.test){m.innerHTML='<div class="hint">請至少選取一片 wafer，並選擇測項。</div>';return}
+  const t=(S.tests[S.cp]||[]).find(q=>q.key===S.test),lim=limitsOf(runs,S.test);
+  const per=runs.map(r=>({r,c:colOf(r,S.test)})).filter(q=>q.c).map(q=>({r:q.r,lim:q.c.c,v:Array.from(q.c.v).filter(v=>v===v)}));
+  const allv=[].concat(...per.map(q=>q.v)).sort((a,b)=>a-b);
+  if(!allv.length){m.innerHTML='<div class="hint">所選 wafer 沒有這個測項的讀值。</div>';return}
+  let a=pctile(allv,.002),b=pctile(allv,.998);
+  {const q1=pctile(allv,.25),q3=pctile(allv,.75),iqr=q3-q1; // 自動範圍：Q1/Q3 ± 8×IQR（排除極端值），IQR 為 0 時退回 P0.2~P99.8
+   if(iqr>0){a=Math.max(allv[0],q1-8*iqr);b=Math.min(allv[allv.length-1],q3+8*iqr)}}
+  if(o.range==='all'){a=allv[0];b=allv[allv.length-1]}
+  let pad=(b-a)*.05;if(!(pad>0))pad=Math.abs(a)*.01||1;a-=pad;b+=pad;
+  if(o.range==='spec'){if(lim.lo!==null)a=Math.min(a,lim.lo-(b-a)*.02);if(lim.hi!==null)b=Math.max(b,lim.hi+(b-a)*.02)}
+  const nb=o.bins,bw=(b-a)/nb;
+  const groups=o.group==='wafer'?per.map((q,i)=>({name:labelOf(q.r),v:q.v,col:PALETTE[i%PALETTE.length],lim:q.lim})):[{name:'合計',v:allv,col:'#2563eb',lim:null}];
+  const cnt=groups.map(g=>{const c=new Array(nb).fill(0);for(const v of g.v){if(v<a||v>b)continue;let k=Math.floor((v-a)/bw);if(k>=nb)k=nb-1;c[k]++}return c});
+  const inr=allv.filter(v=>v>=a&&v<=b),N=inr.length,mu=inr.reduce((s,v)=>s+v,0)/N;
+  const sd=Math.sqrt(inr.reduce((s,v)=>s+(v-mu)*(v-mu),0)/Math.max(1,N-1));
+  const tot=new Array(nb).fill(0);cnt.forEach(c=>c.forEach((v,k)=>tot[k]+=v));
+  const pm=o.yMode==='pct'?100/N:1;
+  let ymax=Math.max(...tot)*pm;
+  const pdf=x=>sd>0?Math.exp(-0.5*((x-mu)/sd)**2)/(sd*Math.sqrt(2*Math.PI)):0;
+  const curve=[];for(let k=0;k<=120;k++){const x=a+(b-a)*k/120;curve.push([x,N*bw*pdf(x)*pm])}
+  ymax=Math.max(ymax,Math.max(...curve.map(c=>c[1])))*1.06||1;
+  const W=chartW(),H=430,L=70,R=24,T=26,B=62,pw=W-L-R,ph=H-T-B;
+  const X=x=>L+(x-a)/(b-a)*pw,Y=y=>T+ph-(y/ymax)*ph;
+  let s=svgOpen(W,H);
+  const yt=niceTicks(0,ymax,5).ticks;
+  for(const v of yt)s+=`<line x1="${L}" x2="${W-R}" y1="${Y(v)}" y2="${Y(v)}" stroke="#e5e7eb"/><text x="${L-8}" y="${Y(v)+4}" text-anchor="end" font-size="12" fill="#6b7280">${o.yMode==='pct'?fmt(v,1)+'%':fmt(v,0)}</text>`;
+  const xt=niceTicks(a,b,8).ticks;
+  for(const v of xt)s+=`<text x="${X(v)}" y="${H-B+18}" text-anchor="middle" font-size="12" fill="#6b7280">${fmt(v,4)}</text>`;
+  const base=new Array(nb).fill(0);
+  groups.forEach((g,gi)=>{for(let k=0;k<nb;k++){const v=cnt[gi][k]*pm;if(!v)continue;const y0=Y(base[k]),y1=Y(base[k]+v);base[k]+=v;
+    s+=`<rect x="${X(a+k*bw)+.5}" y="${y1}" width="${Math.max(1,pw/nb-1)}" height="${y0-y1}" fill="${g.col}"><title>${esc(g.name)}　${fmt(a+k*bw,4)} ~ ${fmt(a+(k+1)*bw,4)}　${cnt[gi][k]} 顆</title></rect>`}});
+  s+=`<polyline fill="none" stroke="#f59e0b" stroke-width="2.4" points="${curve.map(c=>X(c[0])+','+Y(c[1])).join(' ')}"/>`;
+  s+=`<line x1="${X(mu)}" x2="${X(mu)}" y1="${T}" y2="${T+ph}" stroke="#16a34a" stroke-width="2" stroke-dasharray="6 4"/><text x="${X(mu)+5}" y="${T+12}" font-size="12" fill="#16a34a" font-weight="600">μ ${fmt(mu,4)}</text>`;
+  const out=[];
+  for(const [nm,v] of [['LSL',lim.lo],['USL',lim.hi]]){if(v===null)continue;
+    if(v>=a&&v<=b)s+=`<line x1="${X(v)}" x2="${X(v)}" y1="${T}" y2="${T+ph}" stroke="#dc2626" stroke-width="2" stroke-dasharray="6 4"/><text x="${X(v)+(nm==='LSL'?5:-5)}" y="${T+(nm==='LSL'?26:40)}" text-anchor="${nm==='LSL'?'start':'end'}" font-size="12" fill="#dc2626" font-weight="600">${nm} ${fmt(v,4)}</text>`;
+    else out.push(`${nm} ${fmt(v,4)} 在圖面範圍外`)}
+  s+=`<text x="${L+pw/2}" y="${H-12}" text-anchor="middle" font-size="13" fill="#374151">${esc(t?t.label:S.test)}　（${o.yMode==='pct'?'百分比':'次數'}；橘線＝常態擬合）</text></svg>`;
+  const legend=o.group==='wafer'?`<div class="row" style="justify-content:center">${groups.map(g=>`<span class="small"><i style="display:inline-block;width:11px;height:11px;background:${g.col};vertical-align:-1px"></i> ${esc(g.name)}</span>`).join('')}</div>`:'';
+  // 統計表
+  const stat=(vals,L_,U_)=>{const v=vals.filter(x=>x>=a&&x<=b),n=v.length;if(!n)return null;const mu=v.reduce((s,x)=>s+x,0)/n,sd=Math.sqrt(v.reduce((s,x)=>s+(x-mu)*(x-mu),0)/Math.max(1,n-1));
+    let cp=null,cpk=null;if(sd>0){if(L_!==null&&U_!==null)cp=(U_-L_)/(6*sd);const c=[];if(U_!==null)c.push((U_-mu)/(3*sd));if(L_!==null)c.push((mu-L_)/(3*sd));if(c.length)cpk=Math.min(...c)}
+    let oos=0;for(const x of vals)if((U_!==null&&x>U_)||(L_!==null&&x<L_))oos++;
+    return {n,mu,sd,min:Math.min(...v),max:Math.max(...v),cp,cpk,oos}};
+  let rows='';
+  if(o.group==='wafer')for(const q of per){const st=stat(q.v,q.lim.lo,q.lim.hi);if(st)rows+=`<tr><td class="l">${esc(labelOf(q.r))}</td><td>${st.n}</td><td>${fmt(st.mu)}</td><td>${fmt(st.sd)}</td><td>${fmt(st.min)}</td><td>${fmt(st.max)}</td><td>${fmt(q.lim.lo)}</td><td>${fmt(q.lim.hi)}</td><td>${fmt(st.cp,2)}</td><td>${fmt(st.cpk,2)}</td><td>${st.oos}</td></tr>`}
+  const st=stat(allv,lim.lo,lim.hi);
+  rows+=`<tr class="sub"><td class="l">已選 ${per.length} 片合計</td><td>${st.n}</td><td>${fmt(st.mu)}</td><td>${fmt(st.sd)}</td><td>${fmt(st.min)}</td><td>${fmt(st.max)}</td><td>${fmt(lim.lo)}</td><td>${fmt(lim.hi)}</td><td>${fmt(st.cp,2)}</td><td>${fmt(st.cpk,2)}</td><td>${st.oos}</td></tr>`;
+  const outN=allv.length-N;
+  m.innerHTML=`<div class="card">${s}${legend}</div><div class="card" style="margin-top:10px"><div class="small" style="margin-bottom:6px"><b>統計（顯示範圍內）</b></div><div class="scroll"><table><tr><th class="l">資料</th><th>n</th><th>μ</th><th>σ</th><th>Min</th><th>Max</th><th>LSL</th><th>USL</th><th>Cp</th><th>Cpk</th><th>超規數</th></tr>${rows}</table></div>
+  <div class="small" style="margin-top:6px">±${NO_LIMIT} 以上視為「未設限」。${outN>0?`有 ${outN} 筆極端值落在圖面範圍外（不計入圖與 μ/σ/Cpk；超規數仍以全部資料計算）。`:''}${out.length?' '+out.join('；')+'，可改「顯示範圍」為「含規格線」。':''}　σ 為樣本標準差；Cpk 以顯示範圍內資料計算。</div></div>`}
+
+// ====================== 分頁：柏拉圖 ======================
+function renderPareto(){
+  const runs=selRuns(),m=$('#main'),o=S.opt;$('#legendBox').style.display='none';
+  if(!runs.length){m.innerHTML='<div class="hint">請至少選取一片 wafer。</div>';return}
+  const total=runs.reduce((s,r)=>s+r.n,0);let items=[];
+  if(o.parSrc==='test'){
+    const map=new Map();
+    for(const r of runs)r.cols.forEach((c,ci)=>{if(c.lo===null&&c.hi===null)return;const v=r.vals[ci];let f=0;for(let i=0;i<v.length;i++){const x=v[i];if(x===x&&((c.hi!==null&&x>c.hi)||(c.lo!==null&&x<c.lo)))f++}
+      if(f){const e=map.get(c.key)||{key:c.key,n:0,lo:c.lo,hi:c.hi};e.n+=f;map.set(c.key,e)}});
+    const tl=new Map((S.tests[S.cp]||[]).map(t=>[t.key,t]));
+    items=[...map.values()].map(e=>({label:(tl.get(e.key)?.name||e.key)+(tl.get(e.key)?.unit?`(${tl.get(e.key).unit})`:''),group:tl.get(e.key)?.group||'',n:e.n,lo:e.lo,hi:e.hi}))}
+  else{const bc=new Map();for(const r of runs)binCounts(r).forEach((v,b)=>{if(!isPass(b))bc.set(b,(bc.get(b)||0)+v)});items=[...bc.entries()].map(([b,n])=>({label:'Bin '+b,group:'',n,lo:null,hi:null}))}
+  items.sort((x,y)=>y.n-x.n);
+  const sum=items.reduce((s,e)=>s+e.n,0);
+  if(!items.length){m.innerHTML=`<div class="card"><div class="hint">${o.parSrc==='test'?'所選 wafer 沒有任何測項超出上下限。':'所選 wafer 沒有 Fail Bin。'}</div></div>`;return}
+  const show=o.parTop===0?items:items.slice(0,o.parTop);
+  let cum=0;const cums=items.map(e=>(cum+=e.n)/sum*100);
+  const W=chartW(),H=470,L=64,R=56,T=30,Bm=150,pw=W-L-R,ph=H-T-Bm;
+  const ymax=show[0].n*1.1,bw=pw/show.length,Y=v=>T+ph-v/ymax*ph,Yp=p=>T+ph-p/100*ph;
+  let s=svgOpen(W,H);
+  for(const v of niceTicks(0,ymax,5).ticks)s+=`<line x1="${L}" x2="${W-R}" y1="${Y(v)}" y2="${Y(v)}" stroke="#e5e7eb"/><text x="${L-8}" y="${Y(v)+4}" text-anchor="end" font-size="12" fill="#6b7280">${fmt(v,0)}</text>`;
+  for(const p of [0,20,40,60,80,100])s+=`<text x="${W-R+8}" y="${Yp(p)+4}" font-size="12" fill="#6b7280">${p}%</text>`;
+  s+=`<line x1="${L}" x2="${W-R}" y1="${Yp(80)}" y2="${Yp(80)}" stroke="#f59e0b" stroke-dasharray="6 4"/>`;
+  show.forEach((e,i)=>{const x=L+i*bw+bw*.15,w=bw*.7;
+    s+=`<rect x="${x}" y="${Y(e.n)}" width="${w}" height="${T+ph-Y(e.n)}" fill="${i===0?'#dc2626':'#2563eb'}"><title>${esc(e.group?e.group+' · ':'')}${esc(e.label)}　${e.n} 次（${fmt(e.n/total*100,3)}%）</title></rect>
+    <text x="${x+w/2}" y="${Y(e.n)-5}" text-anchor="middle" font-size="12" fill="#4b5563">${e.n}</text>
+    <text transform="translate(${x+w/2+4},${T+ph+10}) rotate(-38)" text-anchor="end" font-size="11.5" fill="#6b7280">${esc(e.label.length>26?e.label.slice(0,25)+'…':e.label)}</text>`});
+  s+=`<polyline fill="none" stroke="#f59e0b" stroke-width="2.4" points="${show.map((e,i)=>`${L+i*bw+bw/2},${Yp(cums[i])}`).join(' ')}"/>`+show.map((e,i)=>`<circle cx="${L+i*bw+bw/2}" cy="${Yp(cums[i])}" r="3.5" fill="#f59e0b"/>`).join('')+'</svg>';
+  let rows='';items.slice(0,o.parTop===0?items.length:Math.max(o.parTop,30)).forEach((e,i)=>{rows+=`<tr><td class="l">${esc(e.group)}</td><td class="l">${esc(e.label)}</td><td>${e.n}</td><td>${fmt(e.n/sum*100,1)}</td><td>${fmt(cums[i],1)}</td><td>${fmt(e.n/total*100,2)}%</td><td>${fmt(e.lo)}</td><td>${fmt(e.hi)}</td></tr>`});
+  m.innerHTML=`<div class="card"><div class="small"><b>${o.parSrc==='test'?'所有測項 Fail 柏拉圖':'Fail Bin 柏拉圖'}</b>　已選 ${runs.length} 片，共 ${total.toLocaleString()} 顆 die，${o.parSrc==='test'?'超規':'Fail'} ${sum} ${o.parSrc==='test'?'次':'顆'}（${fmt(sum/total*100,2)}%）；虛線＝80%${o.parSrc==='test'?'。同一顆 die 在不同測項超規會分別計次。':''}</div>${s}</div>
+  <div class="card" style="margin-top:10px"><div class="scroll"><table><tr><th class="l">群組</th><th class="l">${o.parSrc==='test'?'測項':'Bin'}</th><th>${o.parSrc==='test'?'Fail 數':'Die 數'}</th><th>占 Fail %</th><th>累積 %</th><th>損失率（/總 die）</th><th>下限</th><th>上限</th></tr>${rows}</table></div></div>`}
+
+// ====================== 分頁：良率趨勢 ======================
+function renderTrend(){
+  const m=$('#main'),o=S.opt;$('#legendBox').style.display='none';
+  const stages=o.trStage==='all'?[...new Set(S.runs.map(r=>r.cp))].sort(cpOrder):[S.cp];
+  const cats=new Map(); // key -> label
+  const series=stages.map(cp=>{
+    const rs=S.runs.filter(r=>r.cp===cp&&S.sel.has(r.id)).sort(byWafer);
+    const pts=new Map();
+    for(const r of rs){
+      const y=yieldOf(r);
+      if(o.trUnit==='lot'){const k='L:'+r.lot,p=pts.get(k)||{n:0,pass:0};p.n+=y.n;p.pass+=y.pass;pts.set(k,p);cats.set(k,r.lot)}
+      else{const k='W:'+r.lot+'|'+r.wno+'|'+(r.wno?'':r.waferId);pts.set(k,{n:y.n,pass:y.pass});cats.set(k,runLabel(r))}}
+    return {cp,pts}});
+  const keys=[...cats.keys()];
+  if(!keys.length){m.innerHTML='<div class="hint">請至少選取一片 wafer。</div>';return}
+  // 依 Lot、wafer# 排序
+  keys.sort((p,q)=>{const a=p.slice(2).split('|'),b=q.slice(2).split('|');return a[0].localeCompare(b[0],undefined,{numeric:true})||((+a[1]||0)-(+b[1]||0))});
+  const vals=[];series.forEach(s=>s.pts.forEach(p=>vals.push(p.pass/p.n*100)));
+  const lo=Math.min(...vals),hi=Math.max(...vals),span=Math.max(hi-lo,1);
+  const ymin=Math.max(0,Math.floor(lo-span*.4)),ymax=Math.min(100,Math.max(Math.ceil(hi+span*.15),ymin+2));
+  const W=chartW(),L=64,R=24,pw=W-L-R,step=pw/keys.length,rot=keys.length>8;
+  const H1=290,T1=34,B1=14,ph1=H1-T1-B1;
+  const Y1=v=>T1+ph1-(v-ymin)/(ymax-ymin)*ph1,cx=i=>L+step*i+step/2;
+  let s=svgOpen(W,H1)+`<text x="${L}" y="16" font-size="12" fill="#6b7280">良率 (%)　Bin Pass ÷ 測試 die${o.trUnit==='lot'?'（各批合計）':''}</text>`;
+  for(const v of niceTicks(ymin,ymax,5).ticks)s+=`<line x1="${L}" x2="${W-R}" y1="${Y1(v)}" y2="${Y1(v)}" stroke="#e5e7eb"/><text x="${L-8}" y="${Y1(v)+4}" text-anchor="end" font-size="12" fill="#6b7280">${fmt(v,1)}</text>`;
+  const showLbl=series.length===1?keys.length<=40:keys.length*series.length<=9;
+  series.forEach((sr,si)=>{const col=PALETTE[si%PALETTE.length];let pts=[];
+    keys.forEach((k,i)=>{const p=sr.pts.get(k);if(p){const y=p.pass/p.n*100;pts.push([cx(i),Y1(y),y,k,p])}});
+    s+=`<polyline fill="none" stroke="${col}" stroke-width="2.4" points="${pts.map(p=>p[0]+','+p[1]).join(' ')}"/>`;
+    for(const p of pts)s+=`<circle cx="${p[0]}" cy="${p[1]}" r="4" fill="${col}"><title>${esc(sr.cp)} ${esc(cats.get(p[3]))}　${fmt(p[2],2)}%（${p[4].pass}/${p[4].n}）</title></circle>`+(showLbl?`<text x="${p[0]}" y="${p[1]-9-si*0}" text-anchor="middle" font-size="12" fill="#1f2937">${fmt(p[2],2)}</text>`:'')});
+  s+='</svg>';
+  const maxN=Math.max(...series.flatMap(sr=>[...sr.pts.values()].map(p=>p.n)));
+  const H2=rot?250:190,T2=26,B2=rot?100:44,ph2=H2-T2-B2,Y2=v=>T2+ph2-v/(maxN*1.12)*ph2;
+  let s2=svgOpen(W,H2)+`<text x="${L}" y="16" font-size="12" fill="#6b7280">測試 die 數 (pcs)</text>`;
+  const gw=step*.7/series.length;
+  keys.forEach((k,i)=>{series.forEach((sr,si)=>{const p=sr.pts.get(k);if(!p)return;const x=L+step*i+step*.15+gw*si;
+    s2+=`<rect x="${x}" y="${Y2(p.n)}" width="${gw*.92}" height="${T2+ph2-Y2(p.n)}" fill="${PALETTE[si%PALETTE.length]}"><title>${esc(sr.cp)} ${esc(cats.get(k))}　${p.n} die</title></rect>`+(showLbl?`<text x="${x+gw*.46}" y="${Y2(p.n)-4}" text-anchor="middle" font-size="11.5" fill="#1f2937">${p.n}</text>`:'')});
+    const lb=cats.get(k);s2+=rot?`<text transform="translate(${cx(i)+4},${T2+ph2+12}) rotate(-40)" text-anchor="end" font-size="11.5" fill="#6b7280">${esc(lb)}</text>`:`<text x="${cx(i)}" y="${T2+ph2+18}" text-anchor="middle" font-size="12" fill="#6b7280">${esc(lb)}</text>`});
+  s2+=`<line x1="${L}" x2="${W-R}" y1="${T2+ph2}" y2="${T2+ph2}" stroke="#d1d5db"/></svg>`;
+  const leg=series.length>1?`<div class="row" style="justify-content:center">${series.map((sr,i)=>`<span class="small"><i style="display:inline-block;width:11px;height:11px;background:${PALETTE[i%PALETTE.length]};vertical-align:-1px"></i> ${esc(sr.cp)}</span>`).join('')}</div>`:'';
+  m.innerHTML=`<div class="card">${leg}${s}${s2}</div>`}
+
+// ====================== 選項列 ======================
+function renderOpts(){
+  const o=S.opt,el=$('#opts');let h='';
+  const sel=(id,opts,val)=>`<select id="${id}">${opts.map(([v,l])=>`<option value="${v}" ${String(v)===String(val)?'selected':''}>${l}</option>`).join('')}</select>`;
+  const testBar=()=>{const ts=(S.tests[S.cp]||[]);const f=o.filter.toLowerCase();const ms=ts.filter(t=>!f||t.label.toLowerCase().includes(f));const shown=ms.length?ms:ts;
+    return `<input id="tFilter" type="text" placeholder="搜尋測項…" value="${esc(o.filter)}" size="14"><button class="btn" id="tPrev">◀</button>${`<select id="tSel" style="max-width:420px">${shown.map(t=>`<option value="${esc(t.key)}" ${t.key===S.test?'selected':''}>${esc(t.label)}</option>`).join('')}</select>`}<button class="btn" id="tNext">▶</button>`};
+  if(S.tab==='yield')h=`<span class="small">顯示：</span>`+sel('oBin',[['pf','Pass / Fail 兩色'],['bin','依 Bin 上色']],o.binMode);
+  if(S.tab==='heat'||S.tab==='hist')h=testBar();
+  if(S.tab==='heat')h+=sel('oColor',[['data','色階：資料 1%~99%'],['spec','色階：規格上下限']],o.colorMode)+sel('oSize',[[200,'小圖'],[260,'中圖'],[340,'大圖'],[460,'特大圖']],o.size)+
+     `<label class="ck"><input type="checkbox" id="oCirc" ${o.circle?'checked':''}>圓形校正</label><label class="ck"><input type="checkbox" id="oFx" ${o.flipX?'checked':''}>X 翻轉</label><label class="ck"><input type="checkbox" id="oFy" ${o.flipY?'checked':''}>Y 翻轉</label>`;
+  if(S.tab==='yield')h+=sel('oSize',[[200,'小圖'],[260,'中圖'],[340,'大圖'],[460,'特大圖']],o.size)+`<label class="ck"><input type="checkbox" id="oCirc" ${o.circle?'checked':''}>圓形校正</label><label class="ck"><input type="checkbox" id="oFx" ${o.flipX?'checked':''}>X 翻轉</label><label class="ck"><input type="checkbox" id="oFy" ${o.flipY?'checked':''}>Y 翻轉</label>`;
+  if(S.tab==='hist')h+=sel('oY',[['count','次數'],['pct','百分比']],o.yMode)+sel('oGrp',[['all','合計'],['wafer','各片疊圖']],o.group)+sel('oBins',[[20,'20 格'],[30,'30 格'],[40,'40 格'],[60,'60 格'],[80,'80 格']],o.bins)+sel('oRange',[['auto','顯示範圍：自動'],['all','顯示範圍：全部資料'],['spec','顯示範圍：含規格線']],o.range);
+  if(S.tab==='pareto')h=sel('oPSrc',[['test','依測項超規'],['bin','依 Fail Bin']],o.parSrc)+sel('oPTop',[[10,'前 10 項'],[15,'前 15 項'],[20,'前 20 項'],[30,'前 30 項'],[0,'全部']],o.parTop);
+  if(S.tab==='trend')h=sel('oTU',[['wafer','各片 (Wafer)'],['lot','各批 (Lot)']],o.trUnit)+sel('oTS',[['cur','僅本站別'],['all','全部站別']],o.trStage);
+  el.innerHTML=S.runs.length?h:'';
+  const on=(id,fn,ev='onchange')=>{const x=$('#'+id);if(x)x[ev]=fn};
+  on('oBin',e=>{o.binMode=e.target.value;renderAll()});on('oColor',e=>{o.colorMode=e.target.value;renderAll()});on('oSize',e=>{o.size=+e.target.value;renderAll()});
+  on('oCirc',e=>{o.circle=e.target.checked;renderAll()});on('oFx',e=>{o.flipX=e.target.checked;renderAll()});on('oFy',e=>{o.flipY=e.target.checked;renderAll()});
+  on('oY',e=>{o.yMode=e.target.value;renderAll()});on('oGrp',e=>{o.group=e.target.value;renderAll()});on('oBins',e=>{o.bins=+e.target.value;renderAll()});on('oRange',e=>{o.range=e.target.value;renderAll()});
+  on('oPSrc',e=>{o.parSrc=e.target.value;renderAll()});on('oPTop',e=>{o.parTop=+e.target.value;renderAll()});on('oTU',e=>{o.trUnit=e.target.value;renderAll()});on('oTS',e=>{o.trStage=e.target.value;renderAll()});
+  on('tSel',e=>{S.test=e.target.value;renderBody()});
+  on('tFilter',e=>{o.filter=e.target.value;const pos=e.target.selectionStart,q=o.filter.toLowerCase();
+    const ms=(S.tests[S.cp]||[]).filter(t=>!q||t.label.toLowerCase().includes(q));
+    if(ms.length&&!ms.some(t=>t.key===S.test)){S.test=ms[0].key;renderBody()}
+    renderOpts();const f=$('#tFilter');f.focus();f.setSelectionRange(pos,pos)},'oninput');
+  const step=d=>{const ts=S.tests[S.cp]||[];const i=ts.findIndex(t=>t.key===S.test);if(!ts.length)return;S.test=ts[(i+d+ts.length)%ts.length].key;renderOpts();renderBody()};
+  on('tPrev',()=>step(-1),'onclick');on('tNext',()=>step(1),'onclick')}
+
+function renderBody(){hideTip();
+  if(!S.runs.length){$('#legendBox').style.display='none';$('#main').innerHTML='<div class="hint">尚未載入資料，請先匯入 log。</div>';return}
+  ({yield:renderYield,heat:renderHeat,hist:renderHist,pareto:renderPareto,trend:renderTrend})[S.tab]()}
+function renderAll(){renderTop();renderOpts();renderBody()}
+addEventListener('resize',()=>{if(S.tab==='hist'||S.tab==='pareto'||S.tab==='trend')renderBody()});
+
+// ====================== 匯出 ======================
+$('#bCsv').onclick=()=>{
+  if(!S.runs.length)return;
+  const bins=new Set();S.runs.forEach(r=>binCounts(r).forEach((_,b)=>bins.add(b)));const bl=[...bins].sort((a,b)=>a-b);
+  const rows=[['Lot','Wafer#','Wafer ID','Lot ID(log)','站別','檔名','測試die','Pass','Fail','良率%',...bl.map(b=>'Bin'+b),'測試開始','測試結束']];
+  for(const cp of [...new Set(S.runs.map(r=>r.cp))].sort(cpOrder))for(const r of S.runs.filter(q=>q.cp===cp).sort(byWafer)){
+    const y=yieldOf(r),bc=binCounts(r);rows.push([r.lot,r.wno,r.waferId,r.lotId,r.cp,r.fname,y.n,y.pass,y.fail,y.y.toFixed(2),...bl.map(b=>bc.get(b)||0),r.meta['Test Start Date']||'',r.meta['Test End Date']||''])}
+  const csv=rows.map(r=>r.map(c=>/[",\n]/.test(String(c))?'"'+String(c).replace(/"/g,'""')+'"':c).join(',')).join('\r\n');
+  download('wafer_summary.csv',new Blob(['﻿'+csv],{type:'text/csv'}))};
+$('#bPng').onclick=()=>{
+  const cards=[...document.querySelectorAll('#main .wcard')];if(!cards.length){alert('請切到「Pass / Fail」或「Heatmap」分頁再匯出。');return}
+  const cvs=cards.map(c=>({cv:c.querySelector('canvas'),t:c.querySelector('.t').textContent,s:c.querySelector('.s').textContent}));
+  const cw=cvs[0].cv.width,ch=cvs[0].cv.height,fs=Math.max(12,Math.round(cw/22)),pad=16,hd=Math.round(fs*2.9),cols=Math.min(cvs.length,4),rows=Math.ceil(cvs.length/cols),top=Math.round(fs*2.6);
+  const out=document.createElement('canvas');out.width=cols*(cw+pad)+pad;out.height=top+rows*(ch+hd+pad)+pad;
+  const g=out.getContext('2d');g.fillStyle='#fff';g.fillRect(0,0,out.width,out.height);g.fillStyle='#111';g.font=`bold ${Math.round(fs*1.25)}px sans-serif`;
+  const tl=S.tab==='heat'?((S.tests[S.cp]||[]).find(t=>t.key===S.test)?.label||''):'Pass / Fail';
+  g.fillText(`${S.cp}　${tl}`,pad,top*0.65,out.width-2*pad);
+  cvs.forEach((c,i)=>{const x=pad+(i%cols)*(cw+pad),y=top+Math.floor(i/cols)*(ch+hd+pad);
+    const sp=c.t.indexOf(' ');const nm=sp>0?c.t.slice(0,sp):c.t,rest=sp>0?c.t.slice(sp+1):'';
+    g.fillStyle='#111';g.font=`bold ${fs}px sans-serif`;g.fillText(nm,x,y+fs,cw);
+    g.fillStyle='#555';g.font=`${Math.round(fs*.85)}px sans-serif`;g.fillText(rest,x,y+fs*1.95,cw);g.fillText(c.s,x,y+fs*2.8,cw);g.drawImage(c.cv,x,y+hd)});
+  out.toBlob(b=>download(`${S.cp}_${S.tab}.png`,b))};
+
+renderAll();
+</script>
+</body>
+</html>
